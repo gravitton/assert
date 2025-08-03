@@ -27,14 +27,14 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: StaticCheck
-        run: staticcheck ./...
-
-      - name: GoVulnCheck
-        run: govulncheck ./...
-
       - name: Vet
         run: go vet ./...
+
+      - name: Lint
+        run: staticcheck ./...
+
+      - name: Security
+        run: govulncheck ./...
 
       - name: Build
         run: go build -v ./...
