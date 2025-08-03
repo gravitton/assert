@@ -31,10 +31,6 @@ func TestSomething(t *testing.T) {
 }
 ```
 
-## Contributing
-
-Please see [CONTRIBUTING][link-contributing] and [CODE_OF_CONDUCT][link-code-of-conduct] for details.
-
 
 ## Credits
 
