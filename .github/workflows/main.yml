@@ -41,8 +41,3 @@ jobs:
 
       - name: Test
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Upload coverage
-        run: |
-          wget https://scrutinizer-ci.com/ocular.phar
-          php ocular.phar code-coverage:upload --format=go-cc coverage.out
