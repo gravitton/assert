@@ -6,8 +6,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/gravitton/assert/compare/v0.1.0...master)
+## [Unreleased](https://github.com/gravitton/assert/compare/v1.0.0...master)
 
 
-## v0.1.0 (2025-08-03)
+## v1.0.0 (2025-08-05)
 ### Added
+- Added new assert methods
+  - `True`
+  - `False`
+  - `Equal`
+  - `NotEqual`
+  - `Same`
+  - `NotSame`
+  - `Length`
+  - `Contains`
+  - `NotContains`
+  - `Error`
+  - `NoError`
+  - `ErrorIs`
+  - `NotErrorIs`
+  - `Fail`
+  - `Failf`

@@ -19,8 +19,8 @@
 //		assert.NotEqual(t, actual, unexpected)
 //
 //		// Identity assertions (pointer comparison)
-//		assert.Same(t, &obj, &obj)
-//		assert.NotSame(t, &obj1, &obj2)
+//		assert.Same(t, &actual, &expected)
+//		assert.NotSame(t, &actual, &unexpected)
 //	}
 //
 // # Assertion Functions
