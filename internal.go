@@ -1,20 +1,15 @@
-package internal
+package assert
 
 import (
-	"errors"
 	"reflect"
 	"strings"
 )
 
-func Assert(condition bool) bool {
-	return condition
-}
-
-func Equal(actual, expected any) bool {
+func equal(actual, expected any) bool {
 	return reflect.DeepEqual(actual, expected)
 }
 
-func Same(actual, expected any) bool {
+func same(actual, expected any) bool {
 	if reflect.ValueOf(actual).Kind() != reflect.Ptr || reflect.ValueOf(expected).Kind() != reflect.Ptr {
 		return false
 	}
@@ -22,11 +17,11 @@ func Same(actual, expected any) bool {
 	return actual == expected
 }
 
-func Length(object any) int {
+func length(object any) int {
 	return reflect.ValueOf(object).Len()
 }
 
-func Contains(object any, element any) (found bool, ok bool) {
+func contains(object any, element any) (found bool, ok bool) {
 	valueOf := reflect.ValueOf(object)
 	typeOf := reflect.TypeOf(object)
 	if typeOf == nil {
@@ -41,7 +36,7 @@ func Contains(object any, element any) (found bool, ok bool) {
 
 	if kind == reflect.Map {
 		for _, key := range valueOf.MapKeys() {
-			if Equal(valueOf.MapIndex(key).Interface(), element) {
+			if equal(valueOf.MapIndex(key).Interface(), element) {
 				return true, true
 			}
 		}
@@ -49,18 +44,10 @@ func Contains(object any, element any) (found bool, ok bool) {
 	}
 
 	for i := 0; i < valueOf.Len(); i++ {
-		if Equal(valueOf.Index(i).Interface(), element) {
+		if equal(valueOf.Index(i).Interface(), element) {
 			return true, true
 		}
 	}
 
 	return false, true
-}
-
-func Error(err error) bool {
-	return err != nil
-}
-
-func ErrorIs(err, target error) bool {
-	return errors.Is(err, target)
 }
