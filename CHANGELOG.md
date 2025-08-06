@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.0.0...master)
-
-
-## v1.0.0 (2025-08-05)
 ### Added
 - Added new assert methods
   - `True`

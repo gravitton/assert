@@ -46,7 +46,7 @@ func Equal(t Testing, actual, expected any) bool {
 	t.Helper()
 
 	if !internal.Equal(actual, expected) {
-		return Failf(t, "Should be equal:\n  object: %#v\nelement: %#v", actual, expected)
+		return Failf(t, "Should be equal:\n  actual: %#v\nexpected: %#v", actual, expected)
 	}
 
 	return true
@@ -62,7 +62,7 @@ func NotEqual(t Testing, actual, expected any) bool {
 	t.Helper()
 
 	if internal.Equal(actual, expected) {
-		return Failf(t, "Should not be equal\n  object: %#v", actual)
+		return Failf(t, "Should not be equal\n  actual: %#v", actual)
 	}
 
 	return true
@@ -78,7 +78,7 @@ func Same(t Testing, actual, expected any) bool {
 	t.Helper()
 
 	if !internal.Same(expected, actual) {
-		return Failf(t, "Should be same\n  object: %[1]p %#[1]v\nelement: %[2]p %#[2]v", actual, expected)
+		return Failf(t, "Should be same\n  actual: %[1]p %#[1]v\nexpected: %[2]p %#[2]v", actual, expected)
 	}
 
 	return true
@@ -94,7 +94,7 @@ func NotSame(t Testing, actual, expected any) bool {
 	t.Helper()
 
 	if internal.Same(expected, actual) {
-		return Failf(t, "Should not be same\n  object: %[1]p %#[1]v", actual)
+		return Failf(t, "Should not be same\n  actual: %[1]p %#[1]v", actual)
 	}
 
 	return true
@@ -104,7 +104,7 @@ func Length(t Testing, object any, expected int) bool {
 	t.Helper()
 
 	if actual := internal.Length(object); actual != expected {
-		return Failf(t, "Should have element length\n  object: %#v\n  object: %d\nelement: %d", object, actual, expected)
+		return Failf(t, "Should have element length\n  object: %#v\n  actual: %d\nexpected: %d", object, actual, expected)
 	}
 
 	return true
