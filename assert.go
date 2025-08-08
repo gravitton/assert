@@ -1,6 +1,7 @@
 package assert
 
 import (
+	"encoding/json"
 	"errors"
 )
 
@@ -42,11 +43,11 @@ func False(t Testing, condition bool) bool {
 //
 // Pointer variable equality is determined based on the equality of the
 // referenced values (as opposed to the memory addresses).
-func Equal(t Testing, actual, expected any) bool {
+func Equal[T Comparable](t Testing, actual, expected T) bool {
 	t.Helper()
 
 	if !equal(actual, expected) {
-		return Failf(t, "Should be equal:\n  actual: %#v\nexpected: %#v", actual, expected)
+		return Failf(t, "Should be equal:\n  actual: %s\nexpected: %s", print(actual), print(expected))
 	}
 
 	return true
@@ -58,11 +59,26 @@ func Equal(t Testing, actual, expected any) bool {
 //
 // Pointer variable equality is determined based on the equality of the
 // referenced values (as opposed to the memory addresses).
-func NotEqual(t Testing, actual, expected any) bool {
+func NotEqual[T Comparable](t Testing, actual, expected T) bool {
 	t.Helper()
 
 	if equal(actual, expected) {
-		return Failf(t, "Should not be equal\n  actual: %#v", actual)
+		return Failf(t, "Should not be equal\n  actual: %s", print(actual))
+	}
+
+	return true
+}
+
+// EqualDelta asserts that two numeric values difference is less then delta.
+//
+//	assert.EqualDelta(t, actual, expected, delta)
+//
+// Method panics if delta value is not positive.
+func EqualDelta[T Numeric](t Testing, actual, expected, delta T) bool {
+	t.Helper()
+
+	if !equalDelta(actual, expected, delta) {
+		return Failf(t, "Should be equal in delta:\n  actual: %s\nexpected: %s", print(actual), print(expected))
 	}
 
 	return true
@@ -74,11 +90,13 @@ func NotEqual(t Testing, actual, expected any) bool {
 //
 // Both arguments must be pointer variables. Pointer variable equality is
 // determined based on the equality of both type and value.
-func Same(t Testing, actual, expected any) bool {
+func Same[T Reference](t Testing, actual, expected T) bool {
 	t.Helper()
 
-	if !same(expected, actual) {
-		return Failf(t, "Should be same\n  actual: %[1]p %#[1]v\nexpected: %[2]p %#[2]v", actual, expected)
+	if valid, ok := same[T](expected, actual); !ok {
+		return Failf(t, "Should be pointers\n  actual: %s\nexpected: %s", print(actual), print(expected))
+	} else if !valid {
+		return Failf(t, "Should be same\n  actual: %s\nexpected: %s", print(actual), print(expected))
 	}
 
 	return true
@@ -90,11 +108,13 @@ func Same(t Testing, actual, expected any) bool {
 //
 // Both arguments must be pointer variables. Pointer variable equality is
 // determined based on the equality of both type and value.
-func NotSame(t Testing, actual, expected any) bool {
+func NotSame[T Reference](t Testing, actual, expected T) bool {
 	t.Helper()
 
-	if same(expected, actual) {
-		return Failf(t, "Should not be same\n  actual: %[1]p %#[1]v", actual)
+	if valid, ok := same(expected, actual); !ok {
+		Failf(t, "Should be pointers\n  actual: %s\nexpected: %s", print(actual), print(expected))
+	} else if valid {
+		return Failf(t, "Should not be same\n  actual: %s", print(actual))
 	}
 
 	return true
@@ -103,7 +123,7 @@ func NotSame(t Testing, actual, expected any) bool {
 // Length asserts that object have given length.
 //
 //	assert.Length(t, object, expected)
-func Length(t Testing, object any, expected int) bool {
+func Length[S Iterable[any]](t Testing, object S, expected int) bool {
 	t.Helper()
 
 	if actual := length(object); actual != expected {
@@ -118,7 +138,7 @@ func Length(t Testing, object any, expected int) bool {
 //	assert.Contains(t, object, element)
 //
 // Works with strings, arrays, slices, maps values and channels
-func Contains(t Testing, object, element any) bool {
+func Contains[S Iterable[E], E Comparable](t Testing, object S, element E) bool {
 	t.Helper()
 
 	if found, ok := contains(object, element); !ok {
@@ -135,11 +155,11 @@ func Contains(t Testing, object, element any) bool {
 //	assert.NotContains(t, object, element)
 //
 // Works with strings, arrays, slices, maps values and channels
-func NotContains(t Testing, object any, element any) bool {
+func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E) bool {
 	t.Helper()
 
 	if found, ok := contains(object, element); !ok {
-		return Failf(t, "Should be iterable\n  object: %#v", object)
+		Failf(t, "Should be iterable\n  object: %#v", object)
 	} else if found {
 		return Failf(t, "Should not contain element\n  object: %#v\n element: %#v", object, element)
 	}
@@ -197,6 +217,25 @@ func NotErrorIs(t Testing, err error, target error) bool {
 	}
 
 	return true
+}
+
+// EqualJSON asserts that JSON strings are equal
+//
+//	assert.EqualJSON(t, actual, expected)
+func EqualJSON(t Testing, actual, expected string) bool {
+	t.Helper()
+
+	var actualJSON, expectedJSON any
+
+	if err := json.Unmarshal([]byte(actual), &actualJSON); err != nil {
+		return Failf(t, "Should be valid JSON\n  actual: %s\n     err: %v", expected, err)
+	}
+
+	if err := json.Unmarshal([]byte(expected), &expectedJSON); err != nil {
+		return Failf(t, "Should be valid JSON\nexpected: %s\n     err: %v", expected, err)
+	}
+
+	return Equal(t, expectedJSON, actualJSON)
 }
 
 // Fail reports a failure message through

@@ -3,224 +3,272 @@ package assert
 import (
 	"errors"
 	"fmt"
+	"math"
 	"testing"
+	"time"
 )
 
 func TestAssert(t *testing.T) {
-	t.Parallel()
-
-	mockT := new(testing.T)
-
-	cases := []struct {
-		actual bool
-		result bool
-	}{
-		{true, true},
-		{false, false},
-	}
-
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("True(%#v)", c.actual), func(t *testing.T) {
-			if True(mockT, c.actual) != c.result {
-				t.Errorf("True(%#v) should return return %#v", c.actual, c.result)
-			}
-		})
-	}
-
+	testAssert(t, true, true)
+	testAssert(t, false, false)
 }
 
 func TestEqual(t *testing.T) {
+	testEqual(t, "Hello World", "Hello World", true)
+	testEqual(t, "Hello World", "Hello World!", false)
+	testEqual[testType](t, "A", "A", true)
+	testEqual(t, []byte("Hello World"), []byte("Hello World"), true)
+
+	testEqual(t, 123, 123, true)
+	testEqual(t, 123.5, 123.5, true)
+	testEqual(t, 123.5, 123.5000000001, false)
+	testEqual(t, 123.5, 123, false)
+	testEqual(t, int32(123), int32(123), true)
+	testEqual(t, uint64(123), uint64(123), true)
+
+	testEqual(t, testStruct{1, "a"}, testStruct{1, "a"}, true)
+	testEqual(t, &testStruct{1, "a"}, &testStruct{1, "a"}, true)
+
+	p := ptr(1)
+	testEqual(t, p, p, true)
+	testEqual(t, ptr(1), ptr(1), true)
+
+	s := []int{1, 2}
+	testEqual(t, s, s, true)
+	testEqual(t, s, s[:], true)
+	testEqual(t, s, s[:1], false)
+	testEqual(t, &s, &s, true)
+
+	testEqual(t, []int{1, 2, 3}, []int{1, 2, 3}, true)
+	testEqual(t, []int{1, 2, 3}, []int{1, 2}, false)
+	testEqual(t, &[]int{1, 2, 3}, &[]int{1, 2, 3}, true)
+	testEqual(t, &[]int{1, 2, 3}, &[]int{1, 2}, false)
+
+	m := map[string]int{"a": 1}
+	testEqual(t, m, m, true)
+	testEqual(t, map[string]int{"a": 1}, map[string]int{"a": 1}, true)
+}
+
+func TestEqualDelta(t *testing.T) {
 	t.Parallel()
 
-	mockT := new(testing.T)
+	testEqualDelta(t, 123, 123, 0, true)
+	testEqualDelta(t, 123, 125, 2, true)
+	testEqualDelta(t, 123, 125, 1, false)
+	testEqualDelta(t, -10, -15, 5, true)
+	testEqualDelta(t, -10, -15, 4, false)
 
-	type myType string
+	testEqualDelta(t, 123.0, 123.00001, 0.0001, true)
+	testEqualDelta(t, 123.0, 123.00001, 0.000001, false)
 
-	cases := []struct {
-		actual   any
-		expected any
-		result   bool
-	}{
-		{"Hello World", "Hello World", true},
-		{123, 123, true},
-		{123.5, 123.5, true},
-		{123.5, 123, false},
-		{[]byte("Hello World"), []byte("Hello World"), true},
-		{[]int{1, 2}, []int{1, 2, 3}, false},
-		{nil, nil, true},
-		{int32(123), int32(123), true},
-		{uint64(123), uint64(123), true},
-		{int32(123), int64(123), false},
-		{10, uint(10), false},
-		{&struct{}{}, &struct{}{}, true}, // pointer equality is based on equality of underlying value
-		{myType("1"), myType("1"), true},
-	}
+	testEqualDelta(t, math.NaN(), math.NaN(), 1000, true)
+	testEqualDelta(t, math.NaN(), 1, 1000, false)
+	testEqualDelta(t, 2, math.NaN(), 1000, false)
+	testEqualDelta(t, math.Inf(1), math.Inf(1), 1.0, true)
+	testEqualDelta(t, math.Inf(1), math.Inf(-1), 1.0, false)
 
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("Equal(%#v,%#v)", c.actual, c.expected), func(t *testing.T) {
-			if Equal(mockT, c.actual, c.expected) != c.result {
-				t.Errorf("Equal(%#v,%#v) should return %#v", c.actual, c.expected, c.result)
-			}
-
-			if NotEqual(mockT, c.actual, c.expected) != !c.result {
-				t.Errorf("NotEqual(%#v,%#v) should return %#v", c.actual, c.expected, !c.result)
-			}
-		})
-	}
+	testEqualDelta[uint32](t, 123, 125, 3, true)
+	testEqualDelta(t, time.Millisecond*100, time.Millisecond*120, time.Millisecond*50, true)
 }
 
 func TestSame(t *testing.T) {
-	t.Parallel()
+	testSame(t, "Hello World", "Hello World", false)
+	testSame(t, 123, 123, false)
 
-	mockT := new(testing.T)
+	v := 1
+	p := &v
+	testSame(t, v, v, false)
+	testSame(t, &v, &v, true)
+	testSame(t, p, &v, true)
+	testSame(t, p, p, true)
+	testSame(t, ptr(v), ptr(v), false)
 
-	v1 := 1
-	p1 := ptr(v1)
-	p2 := p1
+	s := []int{1, 2}
+	testSame(t, s, s, true)
+	testSame(t, &s, &s, true)
+	testSame(t, []int{1, 2}, []int{1, 2}, false)
+	testSame(t, []byte("Hello World"), []byte("Hello World"), false)
 
-	cases := []struct {
-		actual   any
-		expected any
-		result   bool
-	}{
-		{"Hello World", "Hello World", false},
-		{123, 123, false},
-		{nil, nil, false},
-		{[]byte("Hello World"), []byte("Hello World"), false},
-		{[]int(nil), nil, false},
-		{&struct{}{}, &struct{}{}, true}, // pointer equality is based on equality of underlying value
-		{v1, v1, false},
-		{v1, &v1, false},
-		{&v1, &v1, true},
-		{ptr(1), ptr(1), false},
-		{p1, p2, true},
-	}
-
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("Same(%#v,%#v)", c.actual, c.expected), func(t *testing.T) {
-			if Same(mockT, c.actual, c.expected) != c.result {
-				t.Errorf("Same(%#v,%#v) should return %#v", c.actual, c.expected, c.result)
-			}
-
-			if NotSame(mockT, c.actual, c.expected) != !c.result {
-				t.Errorf("NotSame(%#v,%#v) should return %#v", c.actual, c.expected, !c.result)
-			}
-		})
-	}
+	m := map[string]int{"a": 1}
+	testSame(t, m, m, true)
+	testSame(t, map[string]int{"a": 1}, map[string]int{"a": 1}, false)
 }
 
 func TestLength(t *testing.T) {
-	t.Parallel()
-
-	mockT := new(testing.T)
-
-	cases := []struct {
-		actual   any
-		expected int
-		result   bool
-	}{
-		{[]int{}, 0, true},
-		{[]int{1, 2, 3}, 3, true},
-		{[]int{1, 2, 3}, 2, false},
-		{"Hello", 5, true},
-		{map[string]bool{"a": true, "b": false}, 2, true},
-	}
-
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("Length(%#v,%#v)", c.actual, c.expected), func(t *testing.T) {
-			if Length(mockT, c.actual, c.expected) != c.result {
-				t.Errorf("Length(%#v,%#v) should return %#v", c.actual, c.expected, c.result)
-			}
-		})
-	}
+	testLength(t, []int{}, 0, true)
+	testLength(t, []int{1, 2, 3}, 3, true)
+	testLength(t, []int{1, 2, 3}, 2, false)
+	testLength(t, "Hello", 5, true)
+	testLength(t, map[string]bool{"a": true, "b": false}, 2, true)
 }
 
 func TestContains(t *testing.T) {
-	t.Parallel()
-
-	mockT := new(testing.T)
-
-	cases := []struct {
-		object  any
-		element any
-		result  bool
-	}{
-		{[]int{}, 0, false},
-		{[]int{1, 2, 3}, 2, true},
-		{[]int{1, 2, 3}, 4, false},
-		{"Hello", "e", true},
-		{"Hello", 2, false},
-		{map[string]bool{"a": true, "b": false}, true, true},
-		{map[string]bool{"a": true, "b": false}, "a", false},
-	}
-
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("Contains(%#v,%#v)", c.object, c.element), func(t *testing.T) {
-			if Contains(mockT, c.object, c.element) != c.result {
-				t.Errorf("Contains(%#v,%#v) should return %#v", c.object, c.element, c.result)
-			}
-
-			if NotContains(mockT, c.object, c.element) != !c.result {
-				t.Errorf("NotContains(%#v,%#v) should return %#v", c.object, c.element, c.result)
-			}
-		})
-	}
+	testContains(t, []int{}, 0, false)
+	testContains(t, []int{1, 2, 3}, 2, true)
+	testContains(t, []int{1, 2, 3}, 4, false)
+	testContains(t, "Hello", "e", true)
+	testContains(t, "Hello", 2, false)
+	testContains(t, map[string]bool{"a": true, "b": false}, true, true)
+	testContains(t, map[string]bool{"a": true, "b": false}, "a", false)
 }
 
 func TestError(t *testing.T) {
-	t.Parallel()
-
-	mockT := new(testing.T)
-
-	cases := []struct {
-		err    error
-		result bool
-	}{
-		{nil, false},
-		{errors.New("ooh"), true},
-	}
-
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("Error(%#v)", c.err), func(t *testing.T) {
-			if Error(mockT, c.err) != c.result {
-				t.Errorf("Error(%#v) should return %#v", c.err, c.result)
-			}
-
-			if NoError(mockT, c.err) != !c.result {
-				t.Errorf("NoError(%#v) should return %#v", c.err, !c.result)
-			}
-		})
-	}
+	testError(t, nil, false)
+	testError(t, errors.New("ooh"), true)
 }
 
 func TestErrorIs(t *testing.T) {
-	t.Parallel()
-
-	mockT := new(testing.T)
-
 	err := errors.New("ooh")
 
-	cases := []struct {
-		err    error
-		target error
-		result bool
-	}{
-		{nil, nil, true},
-		{errors.New("ooh"), nil, false},
-		{err, err, true},
-		{errors.Join(errors.New("ooh1"), err), err, true},
+	testErrorIs(t, nil, nil, true)
+	testErrorIs(t, errors.New("ooh"), nil, false)
+	testErrorIs(t, err, err, true)
+	testErrorIs(t, errors.Join(errors.New("ooh1"), err), err, true)
+}
+
+func TestEqualJSON(t *testing.T) {
+	testEqualJSON(t, "Hello World", "Hello World", false)
+	testEqualJSON(t, "\"Hello World\"", "\"Hello World\"", true)
+	testEqualJSON(t, "\"Hello World\"", "\"Hello World!\"", false)
+	testEqualJSON(t, "123", "123", true)
+	testEqualJSON(t, "123.0", "123", true)
+	testEqualJSON(t, "123.3", "123", false)
+	testEqualJSON(t, "false", "false", true)
+	testEqualJSON(t, `{"x":10, "y":16}`, `{"x":10,"y":16.000}`, true)
+}
+
+type testType string
+
+type testStruct struct {
+	a int
+	b string
+}
+
+type logger struct {
+	LastError string
+}
+
+func (m *logger) Helper() {
+}
+
+func (m *logger) Errorf(format string, args ...any) {
+	m.LastError = fmt.Sprintf(format, args...)
+}
+
+func (m *logger) Clear() {
+	m.LastError = ""
+}
+
+var tt = &logger{}
+
+func testAssert(t *testing.T, condition bool, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if True(tt, condition) != result {
+		t.Errorf("True(%#v) should return %#v: %s", condition, result, tt.LastError)
 	}
 
-	for _, c := range cases {
-		t.Run(fmt.Sprintf("ErrorIs(%#v,%#v)", c.err, c.target), func(t *testing.T) {
-			if ErrorIs(mockT, c.err, c.target) != c.result {
-				t.Errorf("ErrorIs(%#v,%#v) should return %#v", c.err, c.target, c.result)
-			}
+	tt.Clear()
+	if False(tt, condition) != !result {
+		t.Errorf("False(%#v) should return %#v: %s", condition, !result, tt.LastError)
+	}
+}
 
-			if NotErrorIs(mockT, c.err, c.target) != !c.result {
-				t.Errorf("NotErrorIs(%#v,%#v) should return %#v", c.err, c.target, !c.result)
-			}
-		})
+func testEqual[T Comparable](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Equal(tt, actual, expected) != result {
+		t.Errorf("Equal(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+
+	tt.Clear()
+	if NotEqual(tt, actual, expected) != !result {
+		t.Errorf("NotEqual(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+	}
+}
+
+func testEqualDelta[T Numeric](t *testing.T, actual, expected, delta T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if EqualDelta(tt, actual, expected, delta) != result {
+		t.Errorf("EqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, result, tt.LastError)
+	}
+}
+
+func testSame[T Reference](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Same(tt, actual, expected) != result {
+		t.Errorf("Same(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+
+	tt.Clear()
+	if NotSame(tt, actual, expected) != !result {
+		t.Errorf("NotSame(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+	}
+}
+
+func testLength[T any](t *testing.T, actual T, expected int, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Length(tt, actual, expected) != result {
+		t.Errorf("Length(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+	}
+}
+
+func testContains[S Iterable[E], E Comparable](t *testing.T, object S, element E, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Contains(tt, object, element) != result {
+		t.Errorf("Contains(%#v,%#v) should return %#v", object, element, result)
+	}
+
+	tt.Clear()
+	if NotContains(tt, object, element) != !result {
+		t.Errorf("NotContains(%#v,%#v) should return %#v", object, element, !result)
+	}
+}
+
+func testError(t *testing.T, err error, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Error(tt, err) != result {
+		t.Errorf("Error(%#v) should return %#v", err, result)
+	}
+
+	tt.Clear()
+	if NoError(tt, err) != !result {
+		t.Errorf("NoError(%#v) should return %#v", err, !result)
+	}
+}
+
+func testErrorIs(t *testing.T, err, target error, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if ErrorIs(tt, err, target) != result {
+		t.Errorf("ErrorIs(%#v,%#v) should return %#v", err, target, result)
+	}
+
+	tt.Clear()
+	if NotErrorIs(tt, err, target) != !result {
+		t.Errorf("NotErrorIs(%#v,%#v) should return %#v", err, target, !result)
+	}
+}
+
+func testEqualJSON(t *testing.T, actual, expected string, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if EqualJSON(tt, actual, expected) != result {
+		t.Errorf("EqualJSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 }
 

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - `False`
   - `Equal`
   - `NotEqual`
+  - `EqualDelta`
   - `Same`
   - `NotSame`
   - `Length`
@@ -22,5 +23,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - `NoError`
   - `ErrorIs`
   - `NotErrorIs`
+  - `EqualJSON`
   - `Fail`
   - `Failf`
