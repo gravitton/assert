@@ -28,13 +28,15 @@ import (
 	"testing"
 )
 
-func TestSomething(t *testing.T) {
+func Test(t *testing.T) {
 	// assert equality
 	assert.Equal(t, 123, 123)
 	// assert inequality
 	assert.NotEqual(t, 123, 456)
 	// assert object contains element
 	assert.Contains(t, []int{1, 2, 3}, 2)
+	// assert object can be marshall to given JSON string
+	assert.JSON(t, &obj, `{"data":1}`)
 }
 ```
 

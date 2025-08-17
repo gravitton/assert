@@ -11,9 +11,25 @@ type Testing interface {
 	Errorf(format string, args ...any)
 }
 
+// Fail reports a failure message through
+func Fail(t Testing, message string) bool {
+	t.Helper()
+
+	t.Errorf(message)
+
+	return false
+}
+
+// Failf reports a failure formatted message through
+func Failf(t Testing, format string, args ...any) bool {
+	t.Helper()
+
+	t.Errorf(format, args...)
+
+	return false
+}
+
 // True asserts that the specified value is true.
-//
-//	assert.True(t, condition)
 func True(t Testing, condition bool) bool {
 	t.Helper()
 
@@ -25,8 +41,6 @@ func True(t Testing, condition bool) bool {
 }
 
 // False asserts that the specified value is false.
-//
-//	assert.False(t, condition)
 func False(t Testing, condition bool) bool {
 	t.Helper()
 
@@ -38,8 +52,6 @@ func False(t Testing, condition bool) bool {
 }
 
 // Equal asserts that two objects are equal.
-//
-//	assert.Equal(t, actual, expected)
 //
 // Pointer variable equality is determined based on the equality of the
 // referenced values (as opposed to the memory addresses).
@@ -55,8 +67,6 @@ func Equal[T Comparable](t Testing, actual, expected T) bool {
 
 // NotEqual asserts that the specified values are NOT equal.
 //
-//	assert.NotEqual(t, actual, expected)
-//
 // Pointer variable equality is determined based on the equality of the
 // referenced values (as opposed to the memory addresses).
 func NotEqual[T Comparable](t Testing, actual, expected T) bool {
@@ -71,8 +81,6 @@ func NotEqual[T Comparable](t Testing, actual, expected T) bool {
 
 // EqualDelta asserts that two numeric values difference is less then delta.
 //
-//	assert.EqualDelta(t, actual, expected, delta)
-//
 // Method panics if delta value is not positive.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T) bool {
 	t.Helper()
@@ -85,8 +93,6 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T) bool {
 }
 
 // Same asserts that two pointers reference the same object.
-//
-//	assert.Same(t, actual, expected)
 //
 // Both arguments must be pointer variables. Pointer variable equality is
 // determined based on the equality of both type and value.
@@ -104,8 +110,6 @@ func Same[T Reference](t Testing, actual, expected T) bool {
 
 // NotSame asserts that two pointers do NOT reference the same object.
 //
-//	assert.NotSame(t, actual, expected)
-//
 // Both arguments must be pointer variables. Pointer variable equality is
 // determined based on the equality of both type and value.
 func NotSame[T Reference](t Testing, actual, expected T) bool {
@@ -121,8 +125,6 @@ func NotSame[T Reference](t Testing, actual, expected T) bool {
 }
 
 // Length asserts that object have given length.
-//
-//	assert.Length(t, object, expected)
 func Length[S Iterable[any]](t Testing, object S, expected int) bool {
 	t.Helper()
 
@@ -134,8 +136,6 @@ func Length[S Iterable[any]](t Testing, object S, expected int) bool {
 }
 
 // Contains asserts that object contains given element
-//
-//	assert.Contains(t, object, element)
 //
 // Works with strings, arrays, slices, maps values and channels
 func Contains[S Iterable[E], E Comparable](t Testing, object S, element E) bool {
@@ -152,8 +152,6 @@ func Contains[S Iterable[E], E Comparable](t Testing, object S, element E) bool 
 
 // NotContains asserts that object do NOT contains given element
 //
-//	assert.NotContains(t, object, element)
-//
 // Works with strings, arrays, slices, maps values and channels
 func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E) bool {
 	t.Helper()
@@ -168,8 +166,6 @@ func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E) bo
 }
 
 // Error asserts that error is NOT nil
-//
-//	assert.Error(t, err)
 func Error(t Testing, err error) bool {
 	t.Helper()
 
@@ -181,8 +177,6 @@ func Error(t Testing, err error) bool {
 }
 
 // NoError asserts that error is nil
-//
-//	assert.NoError(t, err)
 func NoError(t Testing, err error) bool {
 	t.Helper()
 
@@ -194,8 +188,6 @@ func NoError(t Testing, err error) bool {
 }
 
 // ErrorIs asserts that error is unwrappable to given target
-//
-//	assert.ErrorIs(t, err)
 func ErrorIs(t Testing, err error, target error) bool {
 	t.Helper()
 
@@ -207,8 +199,6 @@ func ErrorIs(t Testing, err error, target error) bool {
 }
 
 // NotErrorIs asserts that error is NOT unwrappable to given target
-//
-//	assert.NotErrorIs(t, err)
 func NotErrorIs(t Testing, err error, target error) bool {
 	t.Helper()
 
@@ -220,8 +210,6 @@ func NotErrorIs(t Testing, err error, target error) bool {
 }
 
 // EqualJSON asserts that JSON strings are equal
-//
-//	assert.EqualJSON(t, actual, expected)
 func EqualJSON(t Testing, actual, expected string) bool {
 	t.Helper()
 
@@ -238,20 +226,11 @@ func EqualJSON(t Testing, actual, expected string) bool {
 	return Equal(t, expectedJSON, actualJSON)
 }
 
-// Fail reports a failure message through
-func Fail(t Testing, message string) bool {
+// JSON asserts that object can be marshall to expected JSON string
+func JSON(t Testing, actual any, expected string) bool {
 	t.Helper()
 
-	t.Errorf(message)
+	s, err := json.Marshal(actual)
 
-	return false
-}
-
-// Failf reports a failure formatted message through
-func Failf(t Testing, format string, args ...any) bool {
-	t.Helper()
-
-	t.Errorf(format, args...)
-
-	return false
+	return NoError(t, err) && EqualJSON(t, string(s), expected)
 }

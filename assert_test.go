@@ -137,6 +137,18 @@ func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, `{"x":10, "y":16}`, `{"x":10,"y":16.000}`, true)
 }
 
+func TestJSON(t *testing.T) {
+	testJSON(t, map[string]any{"a": 1, "b": true, "c": "Hello"}, `{"a":1,"b":true,"c":"Hello"}`, true)
+	testJSON(t, "Hello", "", false)
+	testJSON(t, struct {
+		A int `json:"a"`
+		B string
+	}{
+		A: 1,
+		B: "Hello",
+	}, `{"a":1,"B":"Hello"}`, true)
+}
+
 type testType string
 
 type testStruct struct {
@@ -269,6 +281,15 @@ func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 	tt.Clear()
 	if EqualJSON(tt, actual, expected) != result {
 		t.Errorf("EqualJSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testJSON(t *testing.T, actual any, expected string, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if JSON(tt, actual, expected) != result {
+		t.Errorf("JSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 }
 

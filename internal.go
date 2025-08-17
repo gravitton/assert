@@ -23,7 +23,6 @@ func equalDelta[T Numeric](actual, expected, delta T) bool {
 	actualFloat := float64(actual)
 	expectedFloat := float64(expected)
 
-	fmt.Println(actual, expected)
 	if math.IsNaN(actualFloat) && math.IsNaN(expectedFloat) {
 		return true
 	} else if math.IsNaN(actualFloat) || math.IsNaN(expectedFloat) {
@@ -31,9 +30,8 @@ func equalDelta[T Numeric](actual, expected, delta T) bool {
 	}
 
 	diff := expectedFloat - actualFloat
-	d := float64(delta)
-	fmt.Println(actual, expected, diff, d)
-	if diff < -d || diff > d {
+	deltaFloat := float64(delta)
+	if diff < -deltaFloat || diff > deltaFloat {
 		return false
 	}
 
