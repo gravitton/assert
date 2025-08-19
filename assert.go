@@ -223,7 +223,7 @@ func EqualJSON(t Testing, actual, expected string) bool {
 		return Failf(t, "Should be valid JSON\nexpected: %s\n     err: %v", expected, err)
 	}
 
-	return Equal(t, expectedJSON, actualJSON)
+	return Equal(t, actualJSON, expectedJSON)
 }
 
 // JSON asserts that object can be marshall to expected JSON string
