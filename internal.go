@@ -94,6 +94,10 @@ func contains[S Iterable[E], E Comparable](object S, element E) (found bool, ok 
 	return false, true
 }
 
+func message(message []string) string {
+	return strings.Join(message, "")
+}
+
 func print(object any) string {
 	valueOf := reflect.ValueOf(object)
 	switch valueOf.Kind() {

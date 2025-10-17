@@ -23,19 +23,77 @@ go get github.com/gravitton/assert
 package main
 
 import (
-	"github.com/gravitton/assert"
 	"testing"
+
+	"github.com/gravitton/assert"
 )
 
 func Test(t *testing.T) {
 	// assert equality
-	assert.Equal(t, 123, 123)
+	assert.Equal(t, 123, 123, "Custom message: ")
 	// assert inequality
 	assert.NotEqual(t, 123, 456)
 	// assert object contains element
 	assert.Contains(t, []int{1, 2, 3}, 2)
 	// assert object can be marshall to given JSON string
 	assert.JSON(t, &obj, `{"data":1}`)
+}
+
+```
+
+All assertions return `false` if assertion is not successful 
+and accepts a custom error message(s) as the last argument which are prefixed to the assert error message.
+
+You can use this to build your own complex assertions.
+
+```go
+package main
+
+import (
+	"image"
+	"testing"
+
+	"github.com/gravitton/assert"
+)
+
+func Test(t *testing.T) {
+	assertRect(t, image.Rect(1, 2, 3, 4), image.Rect(1, 2, 3, 4))
+	// test.go:11: Min.Y: Should be equal:
+	//       actual: 2
+	//     expected: 3
+	// test.go:11: Max.X: Should be equal:
+	//       actual: 3
+	//     expected: 2
+}
+
+func assertRect(t *testing.T, actual image.Rectangle, expected image.Rectangle) bool {
+	t.Helper()
+
+	ok := true
+	
+	if !assertPoint(t, actual.Min, expected.Min, "Min.") {
+		ok = false
+	}
+	if !assertPoint(t, actual.Max, expected.Max, "Max.") {
+		ok = false
+	}
+	
+	return ok
+}
+
+func assertPoint(t *testing.T, actual image.Point, expected image.Point, messages ...string) bool {
+	t.Helper()
+
+	ok := true
+	
+	if !assert.Equal(t, actual.X, expected.X, append(messages, "X: ")...) {
+		ok = false
+	}
+	if !assert.Equal(t, actual.Y, expected.Y, append(messages, "Y: ")...) {
+		ok = false
+	}
+
+	return ok
 }
 ```
 
