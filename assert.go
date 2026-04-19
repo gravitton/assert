@@ -15,7 +15,7 @@ type Testing interface {
 func Fail(t Testing, message string) bool {
 	t.Helper()
 
-	t.Errorf(message)
+	t.Errorf("%s", message)
 
 	return false
 }
@@ -81,7 +81,7 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 
 // EqualDelta asserts that two numeric values difference is less than delta.
 //
-// Method panics if delta value is not positive.
+// Panics if delta is negative.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
@@ -165,7 +165,7 @@ func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E, me
 	return true
 }
 
-// Error asserts that error is NOT nil
+// Error asserts that error is NOT nil.
 func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
@@ -176,7 +176,7 @@ func Error(t Testing, err error, messages ...string) bool {
 	return true
 }
 
-// NoError asserts that error is nil
+// NoError asserts that error is nil.
 func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
@@ -187,7 +187,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	return true
 }
 
-// ErrorIs asserts that error is unwrappable to given target
+// ErrorIs asserts that error is unwrappable to given target.
 func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
@@ -198,18 +198,18 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	return true
 }
 
-// NotErrorIs asserts that error is NOT unwrappable to given target
+// NotErrorIs asserts that error is NOT unwrappable to given target.
 func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if errors.Is(err, target) {
-		return Failf(t, "%sShould not be same error\n   error: %#v", message(messages), err)
+		return Failf(t, "%sShould not be same error\n   error: %#v\n  target: %#v", message(messages), err, target)
 	}
 
 	return true
 }
 
-// EqualJSON asserts that JSON strings are equal
+// EqualJSON asserts that JSON strings are equal.
 func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	t.Helper()
 
@@ -226,7 +226,7 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	return Equal(t, actualJSON, expectedJSON)
 }
 
-// JSON asserts that object can be marshall to expected JSON string
+// JSON asserts that object can be marshaled to expected JSON string.
 func JSON(t Testing, actual any, expected string, messages ...string) bool {
 	t.Helper()
 
