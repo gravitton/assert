@@ -11,7 +11,7 @@ type Testing interface {
 	Errorf(format string, args ...any)
 }
 
-// Fail reports a failure message through
+// Fail reports a failure message via t.Errorf.
 func Fail(t Testing, message string) bool {
 	t.Helper()
 
@@ -20,7 +20,7 @@ func Fail(t Testing, message string) bool {
 	return false
 }
 
-// Failf reports a failure formatted message through
+// Failf reports a formatted failure message via t.Errorf.
 func Failf(t Testing, format string, args ...any) bool {
 	t.Helper()
 
@@ -79,7 +79,7 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 	return true
 }
 
-// EqualDelta asserts that two numeric values difference is less then delta.
+// EqualDelta asserts that two numeric values difference is less than delta.
 //
 // Method panics if delta value is not positive.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
@@ -124,7 +124,7 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 	return true
 }
 
-// Length asserts that object have given length.
+// Length asserts that object has given length.
 func Length[S Iterable[any]](t Testing, object S, expected int, messages ...string) bool {
 	t.Helper()
 
@@ -135,14 +135,14 @@ func Length[S Iterable[any]](t Testing, object S, expected int, messages ...stri
 	return true
 }
 
-// Contains asserts that object contains given element
+// Contains asserts that object contains given element.
 //
-// Works with strings, arrays, slices, maps values and channels
+// Works with strings, arrays, slices, maps values and channels.
 func Contains[S Iterable[E], E Comparable](t Testing, object S, element E, messages ...string) bool {
 	t.Helper()
 
 	if found, ok := contains(object, element); !ok {
-		return Failf(t, "%sShould be iterable\n  object: %#v", object)
+		return Failf(t, "%sShould be iterable\n  object: %#v", message(messages), object)
 	} else if !found {
 		return Failf(t, "%sShould contain element\n  object: %#v\n element: %#v", message(messages), object, element)
 	}
@@ -150,14 +150,14 @@ func Contains[S Iterable[E], E Comparable](t Testing, object S, element E, messa
 	return true
 }
 
-// NotContains asserts that object do NOT contains given element
+// NotContains asserts that object does NOT contain given element.
 //
-// Works with strings, arrays, slices, maps values and channels
+// Works with strings, arrays, slices, maps values and channels.
 func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E, messages ...string) bool {
 	t.Helper()
 
 	if found, ok := contains(object, element); !ok {
-		Failf(t, "%sShould be iterable\n  object: %#v", object)
+		Failf(t, "%sShould be iterable\n  object: %#v", message(messages), object)
 	} else if found {
 		return Failf(t, "%sShould not contain element\n  object: %#v\n element: %#v", message(messages), object, element)
 	}
@@ -170,7 +170,7 @@ func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if err == nil {
-		return Failf(t, "%sShould be error")
+		return Failf(t, "%sShould be error", message(messages))
 	}
 
 	return true
@@ -203,7 +203,7 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if errors.Is(err, target) {
-		return Failf(t, "%sShould not be same error\n   error: %#v", message(messages), err, target)
+		return Failf(t, "%sShould not be same error\n   error: %#v", message(messages), err)
 	}
 
 	return true
@@ -216,7 +216,7 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	var actualJSON, expectedJSON any
 
 	if err := json.Unmarshal([]byte(actual), &actualJSON); err != nil {
-		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", message(messages), expected, err)
+		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", message(messages), actual, err)
 	}
 
 	if err := json.Unmarshal([]byte(expected), &expectedJSON); err != nil {

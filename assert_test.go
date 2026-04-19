@@ -229,7 +229,7 @@ func testLength[T any](t *testing.T, actual T, expected int, result bool) {
 
 	tt.Clear()
 	if Length(tt, actual, expected) != result {
-		t.Errorf("Length(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+		t.Errorf("Length(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 }
 
