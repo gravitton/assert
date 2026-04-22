@@ -94,8 +94,6 @@ func TestSame(t *testing.T) {
 }
 
 func TestGreater(t *testing.T) {
-	t.Parallel()
-
 	testGreater(t, 2, 1, true)
 	testGreater(t, 1, 1, false)
 	testGreater(t, 0, 1, false)
@@ -106,8 +104,6 @@ func TestGreater(t *testing.T) {
 }
 
 func TestGreaterOrEqual(t *testing.T) {
-	t.Parallel()
-
 	testGreaterOrEqual(t, 2, 1, true)
 	testGreaterOrEqual(t, 1, 1, true)
 	testGreaterOrEqual(t, 0, 1, false)
@@ -117,8 +113,6 @@ func TestGreaterOrEqual(t *testing.T) {
 }
 
 func TestLess(t *testing.T) {
-	t.Parallel()
-
 	testLess(t, 1, 2, true)
 	testLess(t, 1, 1, false)
 	testLess(t, 2, 1, false)
@@ -129,8 +123,6 @@ func TestLess(t *testing.T) {
 }
 
 func TestLessOrEqual(t *testing.T) {
-	t.Parallel()
-
 	testLessOrEqual(t, 1, 2, true)
 	testLessOrEqual(t, 1, 1, true)
 	testLessOrEqual(t, 2, 1, false)
