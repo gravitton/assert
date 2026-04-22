@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -135,6 +136,14 @@ func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, "123.3", "123", false)
 	testEqualJSON(t, "false", "false", true)
 	testEqualJSON(t, `{"x":10, "y":16}`, `{"x":10,"y":16.000}`, true)
+}
+
+func TestMatches(t *testing.T) {
+	testMatches(t, "Hello World", `^Hello`, true)
+	testMatches(t, "Hello World", `World$`, true)
+	testMatches(t, "Hello World", `\d+`, false)
+	testMatches(t, "abc123", `\d+`, true)
+	testMatches(t, "Hello World", `[`, false) // invalid regexp
 }
 
 func TestJSON(t *testing.T) {
@@ -272,6 +281,23 @@ func testErrorIs(t *testing.T, err, target error, result bool) {
 	tt.Clear()
 	if NotErrorIs(tt, err, target) != !result {
 		t.Errorf("NotErrorIs(%#v,%#v) should return %#v", err, target, !result)
+	}
+}
+
+func testMatches(t *testing.T, actual, pattern string, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Matches(tt, actual, pattern) != result {
+		t.Errorf("Matches(%#v,%#v) should return %#v: %s", actual, pattern, result, tt.LastError)
+	}
+
+	// NotMatches inverts the result only for valid patterns
+	if _, err := regexp.Compile(pattern); err == nil {
+		tt.Clear()
+		if NotMatches(tt, actual, pattern) != !result {
+			t.Errorf("NotMatches(%#v,%#v) should return %#v: %s", actual, pattern, !result, tt.LastError)
+		}
 	}
 }
 

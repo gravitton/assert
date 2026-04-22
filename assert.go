@@ -3,6 +3,7 @@ package assert
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 )
 
 // Testing is an interface wrapper around *testing.T
@@ -224,6 +225,38 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	}
 
 	return Equal(t, actualJSON, expectedJSON)
+}
+
+// Matches asserts that a string matches the given regular expression.
+func Matches(t Testing, actual, pattern string, messages ...string) bool {
+	t.Helper()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", message(messages), pattern, err)
+	}
+
+	if !re.MatchString(actual) {
+		return Failf(t, "%sShould match regexp\n  actual: %s\n pattern: %s", message(messages), actual, pattern)
+	}
+
+	return true
+}
+
+// NotMatches asserts that a string does NOT match the given regular expression.
+func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
+	t.Helper()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", message(messages), pattern, err)
+	}
+
+	if re.MatchString(actual) {
+		return Failf(t, "%sShould not match regexp\n  actual: %s\n pattern: %s", message(messages), actual, pattern)
+	}
+
+	return true
 }
 
 // JSON asserts that object can be marshaled to expected JSON string.

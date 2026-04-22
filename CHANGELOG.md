@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/gravitton/assert/compare/v1.0.0...master)
+## [Unreleased](https://github.com/gravitton/assert/compare/v1.1.0...master)
+
+## v1.1.0 (2026-04-22)
+### Added
+- Added `Matches` and `NotMatches` assert methods for regexp matching on strings
 
 ## v1.0.0 (2025-10-17)
 ### Added
