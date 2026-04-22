@@ -51,8 +51,6 @@ func TestEqual(t *testing.T) {
 }
 
 func TestEqualDelta(t *testing.T) {
-	t.Parallel()
-
 	testEqualDelta(t, 123, 123, 0, true)
 	testEqualDelta(t, 123, 125, 2, true)
 	testEqualDelta(t, 123, 125, 1, false)
