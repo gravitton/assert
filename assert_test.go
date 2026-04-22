@@ -95,12 +95,67 @@ func TestSame(t *testing.T) {
 	testSame(t, map[string]int{"a": 1}, map[string]int{"a": 1}, false)
 }
 
+func TestGreater(t *testing.T) {
+	t.Parallel()
+
+	testGreater(t, 2, 1, true)
+	testGreater(t, 1, 1, false)
+	testGreater(t, 0, 1, false)
+	testGreater(t, -1, -2, true)
+	testGreater[float64](t, 1.1, 1.0, true)
+	testGreater[float64](t, 1.0, 1.0, false)
+	testGreater[uint32](t, 5, 3, true)
+}
+
+func TestGreaterOrEqual(t *testing.T) {
+	t.Parallel()
+
+	testGreaterOrEqual(t, 2, 1, true)
+	testGreaterOrEqual(t, 1, 1, true)
+	testGreaterOrEqual(t, 0, 1, false)
+	testGreaterOrEqual(t, -1, -2, true)
+	testGreaterOrEqual[float64](t, 1.0, 1.0, true)
+	testGreaterOrEqual[float64](t, 0.9, 1.0, false)
+}
+
+func TestLess(t *testing.T) {
+	t.Parallel()
+
+	testLess(t, 1, 2, true)
+	testLess(t, 1, 1, false)
+	testLess(t, 2, 1, false)
+	testLess(t, -2, -1, true)
+	testLess[float64](t, 1.0, 1.1, true)
+	testLess[float64](t, 1.0, 1.0, false)
+	testLess[uint32](t, 3, 5, true)
+}
+
+func TestLessOrEqual(t *testing.T) {
+	t.Parallel()
+
+	testLessOrEqual(t, 1, 2, true)
+	testLessOrEqual(t, 1, 1, true)
+	testLessOrEqual(t, 2, 1, false)
+	testLessOrEqual(t, -2, -1, true)
+	testLessOrEqual[float64](t, 1.0, 1.0, true)
+	testLessOrEqual[float64](t, 1.1, 1.0, false)
+}
+
 func TestLength(t *testing.T) {
 	testLength(t, []int{}, 0, true)
 	testLength(t, []int{1, 2, 3}, 3, true)
 	testLength(t, []int{1, 2, 3}, 2, false)
 	testLength(t, "Hello", 5, true)
 	testLength(t, map[string]bool{"a": true, "b": false}, 2, true)
+}
+
+func TestEmpty(t *testing.T) {
+	testEmpty(t, []int{}, true)
+	testEmpty(t, []int{1}, false)
+	testEmpty(t, "", true)
+	testEmpty(t, "a", false)
+	testEmpty(t, map[string]bool{}, true)
+	testEmpty(t, map[string]bool{"a": true}, false)
 }
 
 func TestContains(t *testing.T) {
@@ -114,8 +169,11 @@ func TestContains(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
+	var err *testErr = nil
+
 	testError(t, nil, false)
 	testError(t, errors.New("ooh"), true)
+	testError(t, err, false)
 }
 
 func TestErrorIs(t *testing.T) {
@@ -127,6 +185,14 @@ func TestErrorIs(t *testing.T) {
 	testErrorIs(t, errors.Join(errors.New("ooh1"), err), err, true)
 }
 
+func TestMatches(t *testing.T) {
+	testMatches(t, "Hello World", `^Hello`, true)
+	testMatches(t, "Hello World", `World$`, true)
+	testMatches(t, "Hello World", `\d+`, false)
+	testMatches(t, "abc123", `\d+`, true)
+	testMatches(t, "Hello World", `[`, false) // invalid regexp
+}
+
 func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, "Hello World", "Hello World", false)
 	testEqualJSON(t, "\"Hello World\"", "\"Hello World\"", true)
@@ -136,14 +202,6 @@ func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, "123.3", "123", false)
 	testEqualJSON(t, "false", "false", true)
 	testEqualJSON(t, `{"x":10, "y":16}`, `{"x":10,"y":16.000}`, true)
-}
-
-func TestMatches(t *testing.T) {
-	testMatches(t, "Hello World", `^Hello`, true)
-	testMatches(t, "Hello World", `World$`, true)
-	testMatches(t, "Hello World", `\d+`, false)
-	testMatches(t, "abc123", `\d+`, true)
-	testMatches(t, "Hello World", `[`, false) // invalid regexp
 }
 
 func TestJSON(t *testing.T) {
@@ -163,6 +221,12 @@ type testType string
 type testStruct struct {
 	a int
 	b string
+}
+
+type testErr struct{}
+
+func (t testErr) Error() string {
+	return "Custom error"
 }
 
 type logger struct {
@@ -217,6 +281,11 @@ func testEqualDelta[T Numeric](t *testing.T, actual, expected, delta T, result b
 	if EqualDelta(tt, actual, expected, delta) != result {
 		t.Errorf("EqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, result, tt.LastError)
 	}
+
+	tt.Clear()
+	if NotEqualDelta(tt, actual, expected, delta) != !result {
+		t.Errorf("NotEqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, !result, tt.LastError)
+	}
 }
 
 func testSame[T Reference](t *testing.T, actual, expected T, result bool) {
@@ -233,12 +302,62 @@ func testSame[T Reference](t *testing.T, actual, expected T, result bool) {
 	}
 }
 
+func testGreater[T Numeric](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Greater(tt, actual, expected) != result {
+		t.Errorf("Greater(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testGreaterOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if GreaterOrEqual(tt, actual, expected) != result {
+		t.Errorf("GreaterOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testLess[T Numeric](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Less(tt, actual, expected) != result {
+		t.Errorf("Less(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testLessOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if LessOrEqual(tt, actual, expected) != result {
+		t.Errorf("LessOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
 func testLength[T any](t *testing.T, actual T, expected int, result bool) {
 	t.Helper()
 
 	tt.Clear()
 	if Length(tt, actual, expected) != result {
 		t.Errorf("Length(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testEmpty[T any](t *testing.T, object T, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Empty(tt, object) != result {
+		t.Errorf("Empty(%#v) should return %#v: %s", object, result, tt.LastError)
+	}
+
+	tt.Clear()
+	if NotEmpty(tt, object) != !result {
+		t.Errorf("NotEmpty(%#v) should return %#v: %s", object, !result, tt.LastError)
 	}
 }
 

@@ -94,6 +94,20 @@ func contains[S Iterable[E], E Comparable](object S, element E) (found bool, ok 
 	return false, true
 }
 
+func isNilError(err error) bool {
+	if err == nil {
+		return true
+	}
+
+	val := reflect.ValueOf(err)
+	switch val.Kind() {
+	case reflect.Ptr, reflect.Interface:
+		return val.IsNil()
+	}
+
+	return false
+}
+
 func message(message []string) string {
 	return strings.Join(message, "")
 }

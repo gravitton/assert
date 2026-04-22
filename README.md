@@ -43,18 +43,27 @@ func TestFoo(t *testing.T) {
 |---|---|
 | `True(t, condition)` | condition is true |
 | `False(t, condition)` | condition is false |
+| `Same(t, actual, expected)` | pointers reference the same object |
+| `NotSame(t, actual, expected)` | pointers reference different objects |
 | `Equal(t, actual, expected)` | values are equal (deep) |
 | `NotEqual(t, actual, expected)` | values are not equal |
 | `EqualDelta(t, actual, expected, delta)` | numeric values differ by at most delta |
-| `Same(t, actual, expected)` | pointers reference the same object |
-| `NotSame(t, actual, expected)` | pointers reference different objects |
+| `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta |
+| `Greater(t, actual, expected)` | actual > expected |
+| `GreaterOrEqual(t, actual, expected)` | actual >= expected |
+| `Less(t, actual, expected)` | actual < expected |
+| `LessOrEqual(t, actual, expected)` | actual <= expected |
 | `Length(t, object, n)` | string/slice/map/channel has length n |
+| `Empty(t, object)` | string/slice/map/channel has zero length |
+| `NotEmpty(t, object)` | string/slice/map/channel has non-zero length |
 | `Contains(t, object, element)` | string/slice/map/channel contains element |
 | `NotContains(t, object, element)` | string/slice/map/channel does not contain element |
 | `Error(t, err)` | error is not nil |
 | `NoError(t, err)` | error is nil |
 | `ErrorIs(t, err, target)` | error unwraps to target |
 | `NotErrorIs(t, err, target)` | error does not unwrap to target |
+| `Matches(t, actual, pattern)` | string matches regular expression |
+| `NotMatches(t, actual, pattern)` | string does not match regular expression |
 | `EqualJSON(t, actual, expected)` | JSON strings are semantically equal |
 | `JSON(t, object, expected)` | object marshals to expected JSON string |
 | `Fail(t, message)` | always fails with message |

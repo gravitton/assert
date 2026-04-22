@@ -52,6 +52,38 @@ func False(t Testing, condition bool, messages ...string) bool {
 	return true
 }
 
+// Same asserts that two pointers reference the same object.
+//
+// Both arguments must be pointer variables. Pointer variable equality is
+// determined based on the equality of both type and value.
+func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
+	t.Helper()
+
+	if valid, ok := same[T](expected, actual); !ok {
+		return Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	} else if !valid {
+		return Failf(t, "%sShould be same\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	}
+
+	return true
+}
+
+// NotSame asserts that two pointers do NOT reference the same object.
+//
+// Both arguments must be pointer variables. Pointer variable equality is
+// determined based on the equality of both type and value.
+func NotSame[T Reference](t Testing, actual, expected T, messages ...string) bool {
+	t.Helper()
+
+	if valid, ok := same(expected, actual); !ok {
+		Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	} else if valid {
+		return Failf(t, "%sShould not be same\n  actual: %s", message(messages), print(actual))
+	}
+
+	return true
+}
+
 // Equal asserts that two objects are equal.
 //
 // Pointer variable equality is determined based on the equality of the
@@ -93,33 +125,58 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	return true
 }
 
-// Same asserts that two pointers reference the same object.
+// NotEqualDelta asserts that two numeric values difference is greater than delta.
 //
-// Both arguments must be pointer variables. Pointer variable equality is
-// determined based on the equality of both type and value.
-func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
+// Panics if delta is negative.
+func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
-	if valid, ok := same[T](expected, actual); !ok {
-		return Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
-	} else if !valid {
-		return Failf(t, "%sShould be same\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	if equalDelta(actual, expected, delta) {
+		return Failf(t, "%sShould not be equal in delta:\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
 	return true
 }
 
-// NotSame asserts that two pointers do NOT reference the same object.
-//
-// Both arguments must be pointer variables. Pointer variable equality is
-// determined based on the equality of both type and value.
-func NotSame[T Reference](t Testing, actual, expected T, messages ...string) bool {
+// Greater asserts that actual is greater than expected.
+func Greater[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if valid, ok := same(expected, actual); !ok {
-		Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
-	} else if valid {
-		return Failf(t, "%sShould not be same\n  actual: %s", message(messages), print(actual))
+	if actual <= expected {
+		return Failf(t, "%sShould be greater\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	}
+
+	return true
+}
+
+// GreaterOrEqual asserts that actual is greater than or equal to expected.
+func GreaterOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+	t.Helper()
+
+	if actual < expected {
+		return Failf(t, "%sShould be greater or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	}
+
+	return true
+}
+
+// Less asserts that actual is less than expected.
+func Less[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+	t.Helper()
+
+	if actual >= expected {
+		return Failf(t, "%sShould be less\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+	}
+
+	return true
+}
+
+// LessOrEqual asserts that actual is less than or equal to expected.
+func LessOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+	t.Helper()
+
+	if actual > expected {
+		return Failf(t, "%sShould be less or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
 	return true
@@ -131,6 +188,28 @@ func Length[S Iterable[any]](t Testing, object S, expected int, messages ...stri
 
 	if actual := length(object); actual != expected {
 		return Failf(t, "%sShould have element length\n  object: %#v\n  actual: %d\nexpected: %d", message(messages), object, actual, expected)
+	}
+
+	return true
+}
+
+// Empty asserts that object has zero length.
+func Empty[S Iterable[any]](t Testing, object S, messages ...string) bool {
+	t.Helper()
+
+	if length(object) != 0 {
+		return Failf(t, "%sShould be empty\n  object: %#v", message(messages), object)
+	}
+
+	return true
+}
+
+// NotEmpty asserts that object has non-zero length.
+func NotEmpty[S Iterable[any]](t Testing, object S, messages ...string) bool {
+	t.Helper()
+
+	if length(object) == 0 {
+		return Failf(t, "%sShould not be empty\n  object: %#v", message(messages), object)
 	}
 
 	return true
@@ -167,10 +246,12 @@ func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E, me
 }
 
 // Error asserts that error is NOT nil.
+//
+// A typed nil error (e.g. (*MyError)(nil)) is treated as nil.
 func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
-	if err == nil {
+	if isNilError(err) {
 		return Failf(t, "%sShould be error", message(messages))
 	}
 
@@ -178,10 +259,12 @@ func Error(t Testing, err error, messages ...string) bool {
 }
 
 // NoError asserts that error is nil.
+//
+// A typed nil error (e.g. (*MyError)(nil)) is treated as nil.
 func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
-	if err != nil {
+	if !isNilError(err) {
 		return Failf(t, "%sShould not be error\n   error: %#v", message(messages), err)
 	}
 
@@ -208,23 +291,6 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	}
 
 	return true
-}
-
-// EqualJSON asserts that JSON strings are equal.
-func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
-	t.Helper()
-
-	var actualJSON, expectedJSON any
-
-	if err := json.Unmarshal([]byte(actual), &actualJSON); err != nil {
-		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", message(messages), actual, err)
-	}
-
-	if err := json.Unmarshal([]byte(expected), &expectedJSON); err != nil {
-		return Failf(t, "%sShould be valid JSON\nexpected: %s\n     err: %v", message(messages), expected, err)
-	}
-
-	return Equal(t, actualJSON, expectedJSON)
 }
 
 // Matches asserts that a string matches the given regular expression.
@@ -257,6 +323,23 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	}
 
 	return true
+}
+
+// EqualJSON asserts that JSON strings are equal.
+func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
+	t.Helper()
+
+	var actualJSON, expectedJSON any
+
+	if err := json.Unmarshal([]byte(actual), &actualJSON); err != nil {
+		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", message(messages), actual, err)
+	}
+
+	if err := json.Unmarshal([]byte(expected), &expectedJSON); err != nil {
+		return Failf(t, "%sShould be valid JSON\nexpected: %s\n     err: %v", message(messages), expected, err)
+	}
+
+	return Equal(t, actualJSON, expectedJSON)
 }
 
 // JSON asserts that object can be marshaled to expected JSON string.
