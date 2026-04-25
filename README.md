@@ -20,8 +20,6 @@ go get github.com/gravitton/assert
 ## Usage
 
 ```go
-package foo
-
 import (
 	"testing"
 
