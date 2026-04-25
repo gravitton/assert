@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.2.0...master)
 
+
 ## v1.2.0 (2026-04-22)(https://github.com/gravitton/assert/compare/v1.1.0...v1.2.0)
 ### Added
 - Added `Greater`, `GreaterOrEqual`, `Less`, and `LessOrEqual` assert methods for numeric comparison
@@ -16,9 +17,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - `Error` and `NoError` now correctly treat typed nil errors (e.g. `(*MyError)(nil)`) as nil
 
+
 ## v1.1.0 (2026-04-22)(https://github.com/gravitton/assert/compare/v1.0.0...v1.1.0)
 ### Added
 - Added `Matches` and `NotMatches` assert methods for regexp matching on strings
+
 
 ## v1.0.0 (2025-10-17)
 ### Added
