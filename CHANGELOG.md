@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `Greater`, `GreaterOrEqual`, `Less`, and `LessOrEqual` assert methods for numeric comparison
 - Added `Empty` and `NotEmpty` assert methods for zero-length checks on strings, slices, maps, and channels
 - Added `NotEqualDelta` assert method, complementing `EqualDelta`
+
 ### Fixed
 - `Error` and `NoError` now correctly treat typed nil errors (e.g. `(*MyError)(nil)`) as nil
 
