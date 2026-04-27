@@ -265,7 +265,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if !isNilError(err) {
-		return Failf(t, "%sShould not be error\n   error: %#v", message(messages), err)
+		return Failf(t, "%sShould not be error\n     msg: %[2]v\n   error: %#[2]v", message(messages), err)
 	}
 
 	return true
@@ -276,7 +276,7 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if !errors.Is(err, target) {
-		return Failf(t, "%sShould be same error\n   error: %#v\n  target: %#v", message(messages), err, target)
+		return Failf(t, "%sShould be same error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", message(messages), err, target)
 	}
 
 	return true
@@ -287,7 +287,7 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if errors.Is(err, target) {
-		return Failf(t, "%sShould not be same error\n   error: %#v\n  target: %#v", message(messages), err, target)
+		return Failf(t, "%sShould not be same error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", message(messages), err, target)
 	}
 
 	return true
