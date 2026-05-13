@@ -62,6 +62,9 @@ func TestFoo(t *testing.T) {
 | `NotErrorIs(t, err, target)` | error does not unwrap to target |
 | `Matches(t, actual, pattern)` | string matches regular expression |
 | `NotMatches(t, actual, pattern)` | string does not match regular expression |
+| `Panics(t, fn, nil)` | fn panics (value not checked) |
+| `Panics(t, fn, expected)` | fn panics with value equal to expected; if expected is an error, uses errors.Is |
+| `NotPanics(t, fn)` | fn does not panic |
 | `EqualJSON(t, actual, expected)` | JSON strings are semantically equal |
 | `JSON(t, object, expected)` | object marshals to expected JSON string |
 | `Fail(t, message)` | always fails with message |

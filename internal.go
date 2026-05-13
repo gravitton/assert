@@ -94,6 +94,19 @@ func contains[S Iterable[E], E Comparable](object S, element E) (found bool, ok 
 	return false, true
 }
 
+func panics(fn func()) (panicked bool, value any) {
+	defer func() {
+		if r := recover(); r != nil {
+			panicked = true
+			value = r
+		}
+	}()
+
+	fn()
+
+	return false, nil
+}
+
 func isNilError(err error) bool {
 	if err == nil {
 		return true

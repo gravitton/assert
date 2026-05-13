@@ -350,3 +350,46 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 
 	return NoError(t, err, messages...) && EqualJSON(t, string(s), expected, messages...)
 }
+
+// Panics asserts that fn panics.
+//
+// When expected is nil, only the presence of a panic is checked.
+// When expected is an error, the panic value is validated with errors.Is.
+// Otherwise, the panic value is validated with deep equality.
+func Panics(t Testing, fn func(), expected any, messages ...string) bool {
+	t.Helper()
+
+	panicked, value := panics(fn)
+	if !panicked {
+		return Failf(t, "%sShould panic", message(messages))
+	}
+
+	if expected == nil {
+		return true
+	}
+
+	if target, ok := expected.(error); ok {
+		if err, ok := value.(error); ok {
+			return ErrorIs(t, err, target, messages...)
+		}
+
+		return Failf(t, "%sShould panic with error\n  actual: %s\nexpected: %s", message(messages), print(value), print(expected))
+	}
+
+	if !equal(value, expected) {
+		return Failf(t, "%sShould panic with value\n  actual: %s\nexpected: %s", message(messages), print(value), print(expected))
+	}
+
+	return true
+}
+
+// NotPanics asserts that fn does NOT panic.
+func NotPanics(t Testing, fn func(), messages ...string) bool {
+	t.Helper()
+
+	if panicked, value := panics(fn); panicked {
+		return Failf(t, "%sShould not panic\n  value: %s", message(messages), print(value))
+	}
+
+	return true
+}

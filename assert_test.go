@@ -206,6 +206,24 @@ func TestJSON(t *testing.T) {
 	}, `{"a":1,"B":"Hello"}`, true)
 }
 
+func TestPanics(t *testing.T) {
+	testPanics(t, func() { panic("boom") }, nil, true)
+	testPanics(t, func() {}, nil, false)
+	testPanics(t, func() { panic("boom") }, "boom", true)
+	testPanics(t, func() { panic("boom") }, "other", false)
+
+	err := errors.New("oops")
+	testPanics(t, func() { panic(err) }, err, true)
+	testPanics(t, func() { panic(fmt.Errorf("wrapped: %w", err)) }, err, true)
+	testPanics(t, func() { panic(errors.New("other")) }, err, false)
+	testPanics(t, func() { panic("not-an-error") }, err, false)
+}
+
+func TestNotPanics(t *testing.T) {
+	testNotPanics(t, func() { panic("boom") }, false)
+	testNotPanics(t, func() {}, true)
+}
+
 type testType string
 
 type testStruct struct {
@@ -416,6 +434,24 @@ func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 	tt.Clear()
 	if EqualJSON(tt, actual, expected) != result {
 		t.Errorf("EqualJSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testPanics(t *testing.T, fn func(), expected any, result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if Panics(tt, fn, expected) != result {
+		t.Errorf("Panics(%#v) should return %#v: %s", expected, result, tt.LastError)
+	}
+}
+
+func testNotPanics(t *testing.T, fn func(), result bool) {
+	t.Helper()
+
+	tt.Clear()
+	if NotPanics(tt, fn) != result {
+		t.Errorf("NotPanics() should return %#v: %s", result, tt.LastError)
 	}
 }
 
