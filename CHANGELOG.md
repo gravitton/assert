@@ -6,8 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/gravitton/assert/compare/v1.3.0...master)
+## [Unreleased](https://github.com/gravitton/assert/compare/v1.4.0...master)
 
+
+## [v1.4.0 (2026-08-25)](https://github.com/gravitton/assert/compare/v1.3.0...v1.4.0)
+### Changed
+- Require Go 1.27
 
 ## [v1.3.0 (2026-05-13)](https://github.com/gravitton/assert/compare/v1.2.1...v1.3.0)
 ### Added
