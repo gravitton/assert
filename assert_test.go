@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+func TestFail(t *testing.T) {
+	tt.Clear()
+	if Fail(tt, "custom failure") != false {
+		t.Errorf("Fail should return false")
+	}
+	if tt.LastError != "custom failure" {
+		t.Errorf("Fail should report message, got: %s", tt.LastError)
+	}
+}
+
 func TestAssert(t *testing.T) {
 	testAssert(t, true, true)
 	testAssert(t, false, false)
@@ -68,6 +78,9 @@ func TestEqualDelta(t *testing.T) {
 
 	testEqualDelta[uint32](t, 123, 125, 3, true)
 	testEqualDelta(t, time.Millisecond*100, time.Millisecond*120, time.Millisecond*50, true)
+
+	testPanics(t, func() { EqualDelta(tt, 1, 2, -1) }, "delta must be positive", true)
+	testPanics(t, func() { NotEqualDelta(tt, 1, 2, -1) }, "delta must be positive", true)
 }
 
 func TestSame(t *testing.T) {
@@ -156,6 +169,10 @@ func TestContains(t *testing.T) {
 	testContains(t, "Hello", 2, false)
 	testContains(t, map[string]bool{"a": true, "b": false}, true, true)
 	testContains(t, map[string]bool{"a": true, "b": false}, "a", false)
+	testContains(t, map[string]bool{"a": true, "b": true}, false, false)
+
+	testContains(t, []any{1, "two", 3}, 3, false)
+	testContains[any, int](t, nil, 5, false)
 }
 
 func TestError(t *testing.T) {
@@ -164,6 +181,7 @@ func TestError(t *testing.T) {
 	testError(t, nil, false)
 	testError(t, errors.New("ooh"), true)
 	testError(t, err, false)
+	testError(t, testErr{}, true)
 }
 
 func TestErrorIs(t *testing.T) {
@@ -181,6 +199,11 @@ func TestMatches(t *testing.T) {
 	testMatches(t, "Hello World", `\d+`, false)
 	testMatches(t, "abc123", `\d+`, true)
 	testMatches(t, "Hello World", `[`, false) // invalid regexp
+
+	tt.Clear()
+	if NotMatches(tt, "Hello World", `[`) != false {
+		t.Errorf("NotMatches with invalid pattern should return false: %s", tt.LastError)
+	}
 }
 
 func TestEqualJSON(t *testing.T) {
