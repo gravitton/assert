@@ -25,7 +25,7 @@ func equal[T Comparable](actual, expected T) bool {
 
 func equalDelta[T Numeric](actual, expected, delta T) bool {
 	if delta < 0 || delta != delta {
-		panic("delta must be positive")
+		panic("delta must be non-negative")
 	}
 
 	if isFloat[T]() {
@@ -209,12 +209,10 @@ func normalizeJSONNumber(number json.Number) jsonNumber {
 
 func panics(fn func()) (panicked bool, value any) {
 	defer func() {
-		if r := recover(); r != nil {
-			panicked = true
-			value = r
-		}
+		value = recover()
 	}()
 
+	panicked = true
 	fn()
 
 	return false, nil

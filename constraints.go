@@ -8,6 +8,9 @@ type Comparable interface {
 
 // Reference documents that a value is expected to be a pointer, slice, map or channel.
 // It does not restrict the type set; every type satisfies it and the kind is checked at runtime.
+//
+// Functions are deliberately not references: two function values have no comparable
+// identity in Go, so [Same] and [NotSame] reject them even though [Nil] accepts them.
 type Reference interface {
 	any
 }

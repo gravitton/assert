@@ -87,9 +87,9 @@ func TestEqualDelta(t *testing.T) {
 	testEqualDelta[int64](t, math.MaxInt64, math.MinInt64, math.MaxInt64, false)
 	testEqualDelta[int8](t, 127, -128, 127, false)
 
-	testPanicsWith(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
-	testPanicsWith(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
-	testPanicsWith(t, func() { EqualDelta(newLogger(), 1.0, 2.0, math.NaN()) }, "delta must be positive", true)
+	testPanicsWith(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be non-negative", true)
+	testPanicsWith(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be non-negative", true)
+	testPanicsWith(t, func() { EqualDelta(newLogger(), 1.0, 2.0, math.NaN()) }, "delta must be non-negative", true)
 }
 
 func TestNil(t *testing.T) {
@@ -243,6 +243,8 @@ func TestContains(t *testing.T) {
 
 	testContains(t, [3]int{1, 2, 3}, 2, true)
 	testContains(t, []testType{"a"}, testType("a"), true)
+	testContainsInvalid(t, []testType{"a"}, "a")
+	testContainsInvalid(t, []string{"a"}, testType("a"))
 	testContains(t, testType("Hello"), testType("e"), true)
 	testContains[[]any, any](t, []any{1, nil}, nil, true)
 	testContains[[]any, any](t, []any{1, 2}, nil, false)

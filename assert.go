@@ -223,7 +223,7 @@ func LessOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) b
 
 // Length asserts that object has given length.
 //
-// Works with strings, arrays, slices, maps and channels.
+// Works with strings, arrays, slices, maps and channels. String length is measured in bytes, not runes.
 func Length[S Iterable](t Testing, object S, expected int, messages ...string) bool {
 	t.Helper()
 
@@ -238,7 +238,7 @@ func Length[S Iterable](t Testing, object S, expected int, messages ...string) b
 
 // Empty asserts that object has zero length.
 //
-// Works with strings, arrays, slices, maps and channels.
+// Works with strings, arrays, slices, maps and channels. String length is measured in bytes, not runes.
 func Empty[S Iterable](t Testing, object S, messages ...string) bool {
 	t.Helper()
 
@@ -253,7 +253,7 @@ func Empty[S Iterable](t Testing, object S, messages ...string) bool {
 
 // NotEmpty asserts that object has non-zero length.
 //
-// Works with strings, arrays, slices, maps and channels.
+// Works with strings, arrays, slices, maps and channels. String length is measured in bytes, not runes.
 func NotEmpty[S Iterable](t Testing, object S, messages ...string) bool {
 	t.Helper()
 

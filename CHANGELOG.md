@@ -15,23 +15,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - **Breaking:** `Panics` no longer takes an expected value; use `PanicsWith` for that
 - **Breaking:** `Iterable` constraint no longer has a type parameter; `Comparable`, `Reference` and `Iterable` are documented as descriptive only
-- Lowered the minimum Go version to 1.23; CI tests 1.23 through 1.27
 - Failure messages: dropped the trailing colon from `Should be equal` and `Should be equal in delta`, `ErrorIs` reports `Should match error`, `EqualJSON` reports `Should be equal JSON`, `JSON` reports `Should be marshalable` on a marshal error
-- `Same` and `NotSame` no longer accept `unsafe.Pointer` as a reference
-- `Same` and `NotSame` now require both type and address to match, and report non-reference arguments as `Should be reference`; function values are no longer accepted as references
-- `Contains` and `NotContains` report an element whose type does not fit the container as `Should have element of same type` instead of `Should be iterable`
+- `Same` and `NotSame` require both type and address to match, report non-reference arguments as `Should be reference`, and no longer accept `unsafe.Pointer` or function values as references
+- `Contains` and `NotContains` report an element whose type does not fit the container as `Should have element of same type` instead of `Should be iterable`, including a non-string element on a string
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` fail when either value is NaN
-- `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`
+- `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`, and panic with `delta must be non-negative` instead of `delta must be positive`
+- Documented that `Length`, `Empty` and `NotEmpty` measure string length in bytes, and that `Reference` excludes functions
 
 ### Fixed
 - `Same` reported a slice and its resliced prefix (e.g. `s` and `s[:0]`) as the same; slices now also compare length and capacity
 - `EqualJSON` and `JSON` conflated integers beyond 2^53 by decoding through `float64`; numbers are now compared exactly and the failure shows the original JSON strings
+- `EqualJSON` and `JSON` dropped the custom message prefix on the comparison failure
 - `EqualDelta` and `NotEqualDelta` silently never matched on a NaN delta; they now panic like they do on a negative delta
 - `NotSame` and `NotContains` returned `true` after reporting a non-reference or non-iterable argument
+- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` panicked on unsupported types instead of failing; `Contains` on a channel now fails as not iterable
 - `Equal`, `NotEqual`, `Same`, `NotSame` and `Panics` panicked when printing a nil pointer
-- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` panicked on unsupported types instead of failing; `Contains` on a channel no longer panics but fails as not iterable
-- `Contains` on a string with a non-string element compared against reflect's debug representation
-- `EqualJSON` and `JSON` dropped the custom message prefix on the comparison failure
+- `Panics`, `PanicsWith` and `NotPanics` missed `panic(nil)` when the runtime runs with `GODEBUG=panicnil=1`
 - `Error` and `NoError` now treat nil map, slice, func and channel errors as nil
 
 

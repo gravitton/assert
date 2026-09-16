@@ -52,7 +52,7 @@ func TestFoo(t *testing.T) {
 | `GreaterOrEqual(t, actual, expected)`       | actual >= expected                                                                                                     |
 | `Less(t, actual, expected)`                 | actual < expected (fails on NaN)                                                                                       |
 | `LessOrEqual(t, actual, expected)`          | actual <= expected                                                                                                     |
-| `Length(t, object, n)`                      | string/array/slice/map/channel has length n                                                                            |
+| `Length(t, object, n)`                      | string/array/slice/map/channel has length n (string length in bytes)                                                   |
 | `Empty(t, object)`                          | string/array/slice/map/channel has zero length                                                                         |
 | `NotEmpty(t, object)`                       | string/array/slice/map/channel has non-zero length                                                                     |
 | `Contains(t, object, element)`              | string contains substring, or array/slice/map values contain element                                                   |
