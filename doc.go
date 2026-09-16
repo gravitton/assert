@@ -34,13 +34,16 @@
 //
 //   - [True] / [False] — boolean condition
 //   - [Equal] / [NotEqual] — deep value equality
-//   - [EqualDelta] — numeric equality within a tolerance
-//   - [Same] / [NotSame] — pointer identity (same memory address)
-//   - [Length] — length of a string, slice, map, or channel
-//   - [Contains] / [NotContains] — membership in a string, slice, map, or channel
+//   - [EqualDelta] / [NotEqualDelta] — numeric equality within a tolerance
+//   - [Greater] / [GreaterOrEqual] / [Less] / [LessOrEqual] — numeric ordering
+//   - [Same] / [NotSame] — reference identity (same type and address)
+//   - [Length] / [Empty] / [NotEmpty] — length of a string, array, slice, map, or channel
+//   - [Contains] / [NotContains] — membership in a string, array, slice, or map values
 //   - [Error] / [NoError] — error is non-nil / nil
 //   - [ErrorIs] / [NotErrorIs] — error wraps / does not wrap a target
+//   - [Matches] / [NotMatches] — string matches / does not match a regular expression
 //   - [EqualJSON] — semantic JSON string equality
 //   - [JSON] — object marshals to an expected JSON string
+//   - [Panics] / [NotPanics] — function panics / does not panic
 //   - [Fail] / [Failf] — unconditional failure with a custom message
 package assert

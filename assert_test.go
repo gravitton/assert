@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestFail(t *testing.T) {
-	tt.Clear()
+	tt := newLogger()
 	if Fail(tt, "custom failure") != false {
 		t.Errorf("Fail should return false")
 	}
@@ -58,6 +59,9 @@ func TestEqual(t *testing.T) {
 	m := map[string]int{"a": 1}
 	testEqual(t, m, m, true)
 	testEqual(t, map[string]int{"a": 1}, map[string]int{"a": 1}, true)
+
+	testEqual(t, (*int)(nil), ptr(1), false)
+	testEqual(t, (*int)(nil), (*int)(nil), true)
 }
 
 func TestEqualDelta(t *testing.T) {
@@ -78,18 +82,25 @@ func TestEqualDelta(t *testing.T) {
 
 	testEqualDelta[uint32](t, 123, 125, 3, true)
 	testEqualDelta(t, time.Millisecond*100, time.Millisecond*120, time.Millisecond*50, true)
+	testEqualDelta[uint64](t, 1<<60, 1<<60+1, 0, false)
+	testEqualDelta[uint64](t, 1<<60, 1<<60+1, 1, true)
+	testEqualDelta[int64](t, math.MaxInt64, math.MinInt64, math.MaxInt64, false)
+	testEqualDelta[int8](t, 127, -128, 127, false)
 
-	testPanics(t, func() { EqualDelta(tt, 1, 2, -1) }, "delta must be positive", true)
-	testPanics(t, func() { NotEqualDelta(tt, 1, 2, -1) }, "delta must be positive", true)
+	testPanics(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
+	testPanics(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
 }
 
 func TestSame(t *testing.T) {
-	testSame(t, "Hello World", "Hello World", false)
-	testSame(t, 123, 123, false)
+	testSameInvalid(t, "Hello World", "Hello World")
+	testSameInvalid(t, 123, 123)
+	testSameInvalid[any](t, nil, nil)
 
 	v := 1
 	p := &v
-	testSame(t, v, v, false)
+	testSameInvalid(t, v, v)
+	testSameInvalid[any](t, &v, 5)
+	testSameInvalid[any](t, 5, &v)
 	testSame(t, &v, &v, true)
 	testSame(t, p, &v, true)
 	testSame(t, p, p, true)
@@ -104,6 +115,11 @@ func TestSame(t *testing.T) {
 	m := map[string]int{"a": 1}
 	testSame(t, m, m, true)
 	testSame(t, map[string]int{"a": 1}, map[string]int{"a": 1}, false)
+
+	var pair struct{ A int }
+	testSame[any](t, &pair, &pair.A, false)
+	testSame[any](t, &pair, &pair, true)
+	testSame(t, (*int)(nil), (*int)(nil), true)
 }
 
 func TestGreater(t *testing.T) {
@@ -114,6 +130,8 @@ func TestGreater(t *testing.T) {
 	testGreater[float64](t, 1.1, 1.0, true)
 	testGreater[float64](t, 1.0, 1.0, false)
 	testGreater[uint32](t, 5, 3, true)
+	testGreater(t, math.NaN(), 1.0, false)
+	testGreater(t, 1.0, math.NaN(), false)
 }
 
 func TestGreaterOrEqual(t *testing.T) {
@@ -123,6 +141,7 @@ func TestGreaterOrEqual(t *testing.T) {
 	testGreaterOrEqual(t, -1, -2, true)
 	testGreaterOrEqual[float64](t, 1.0, 1.0, true)
 	testGreaterOrEqual[float64](t, 0.9, 1.0, false)
+	testGreaterOrEqual(t, math.NaN(), math.NaN(), false)
 }
 
 func TestLess(t *testing.T) {
@@ -133,6 +152,7 @@ func TestLess(t *testing.T) {
 	testLess[float64](t, 1.0, 1.1, true)
 	testLess[float64](t, 1.0, 1.0, false)
 	testLess[uint32](t, 3, 5, true)
+	testLess(t, math.NaN(), 1.0, false)
 }
 
 func TestLessOrEqual(t *testing.T) {
@@ -142,6 +162,7 @@ func TestLessOrEqual(t *testing.T) {
 	testLessOrEqual(t, -2, -1, true)
 	testLessOrEqual[float64](t, 1.0, 1.0, true)
 	testLessOrEqual[float64](t, 1.1, 1.0, false)
+	testLessOrEqual(t, 1.0, math.NaN(), false)
 }
 
 func TestLength(t *testing.T) {
@@ -150,6 +171,10 @@ func TestLength(t *testing.T) {
 	testLength(t, []int{1, 2, 3}, 2, false)
 	testLength(t, "Hello", 5, true)
 	testLength(t, map[string]bool{"a": true, "b": false}, 2, true)
+	testLength(t, [2]int{1, 2}, 2, true)
+	testLength(t, bufferedChan(3), 3, true)
+	testLength(t, 5, 1, false)
+	testLength[any](t, nil, 0, false)
 }
 
 func TestEmpty(t *testing.T) {
@@ -159,6 +184,18 @@ func TestEmpty(t *testing.T) {
 	testEmpty(t, "a", false)
 	testEmpty(t, map[string]bool{}, true)
 	testEmpty(t, map[string]bool{"a": true}, false)
+	testEmpty(t, bufferedChan(0), true)
+	testEmpty(t, bufferedChan(1), false)
+
+	tt := newLogger()
+	if Empty(tt, 5) != false {
+		t.Errorf("Empty(5) should return false: %s", tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotEmpty(tt, 5) != false {
+		t.Errorf("NotEmpty(5) should return false: %s", tt.LastError)
+	}
 }
 
 func TestContains(t *testing.T) {
@@ -166,13 +203,28 @@ func TestContains(t *testing.T) {
 	testContains(t, []int{1, 2, 3}, 2, true)
 	testContains(t, []int{1, 2, 3}, 4, false)
 	testContains(t, "Hello", "e", true)
-	testContains(t, "Hello", 2, false)
 	testContains(t, map[string]bool{"a": true, "b": false}, true, true)
-	testContains(t, map[string]bool{"a": true, "b": false}, "a", false)
 	testContains(t, map[string]bool{"a": true, "b": true}, false, false)
 
-	testContains(t, []any{1, "two", 3}, 3, false)
-	testContains[any, int](t, nil, 5, false)
+	testContains(t, [3]int{1, 2, 3}, 2, true)
+	testContains(t, []testType{"a"}, testType("a"), true)
+	testContains(t, testType("Hello"), testType("e"), true)
+	testContains[[]any, any](t, []any{1, nil}, nil, true)
+	testContains[[]any, any](t, []any{1, 2}, nil, false)
+
+	testContains(t, []any{1, "two", 3}, 3, true)
+	testContains(t, []any{1, "two", 3}, 4, false)
+	testContains(t, []any{1, "two", 3}, "two", true)
+
+	testContainsInvalid(t, "Hello", 2)
+	testContainsInvalid(t, "<int Value>", 2)
+	testContainsInvalid(t, "true", true)
+	testContainsInvalid(t, map[string]bool{"a": true, "b": false}, "a")
+	testContainsInvalid(t, []int{1}, "x")
+	testContainsInvalid[[]int, any](t, []int{1}, nil)
+	testContainsInvalid[any, int](t, nil, 5)
+	testContainsInvalid(t, 5, 5)
+	testContainsInvalid(t, bufferedChan(1), 1)
 }
 
 func TestError(t *testing.T) {
@@ -182,6 +234,8 @@ func TestError(t *testing.T) {
 	testError(t, errors.New("ooh"), true)
 	testError(t, err, false)
 	testError(t, testErr{}, true)
+	testError(t, testSliceErr(nil), false)
+	testError(t, testSliceErr{"a"}, true)
 }
 
 func TestErrorIs(t *testing.T) {
@@ -200,7 +254,7 @@ func TestMatches(t *testing.T) {
 	testMatches(t, "abc123", `\d+`, true)
 	testMatches(t, "Hello World", `[`, false) // invalid regexp
 
-	tt.Clear()
+	tt := newLogger()
 	if NotMatches(tt, "Hello World", `[`) != false {
 		t.Errorf("NotMatches with invalid pattern should return false: %s", tt.LastError)
 	}
@@ -240,11 +294,83 @@ func TestPanics(t *testing.T) {
 	testPanics(t, func() { panic(fmt.Errorf("wrapped: %w", err)) }, err, true)
 	testPanics(t, func() { panic(errors.New("other")) }, err, false)
 	testPanics(t, func() { panic("not-an-error") }, err, false)
+	testPanics(t, func() { panic(nil) }, nil, true)
 }
 
 func TestNotPanics(t *testing.T) {
 	testNotPanics(t, func() { panic("boom") }, false)
 	testNotPanics(t, func() {}, true)
+}
+
+func TestMessages(t *testing.T) {
+	err := errors.New("oops")
+	target := errors.New("target")
+	x := 1
+
+	cases := []struct {
+		name     string
+		assert   func(t Testing) bool
+		expected string
+	}{
+		{"Failf", func(t Testing) bool { return Failf(t, "x=%d", 1) }, "x=1"},
+		{"True", func(t Testing) bool { return True(t, false, "ctx: ") }, "ctx: Should be true"},
+		{"False", func(t Testing) bool { return False(t, true, "ctx: ") }, "ctx: Should be false"},
+		{"Same", func(t Testing) bool { return Same(t, ptr(1), ptr(1), "ctx: ") }, "ctx: Should be same\n"},
+		{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
+		{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, "ctx: Should not be same\n"},
+		{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
+		{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
+		{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal:\n  actual: (*int)(nil)\nexpected: ["},
+		{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
+		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta:\n  actual: 1\nexpected: 3"},
+		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta:\n  actual: 1\nexpected: 2"},
+		{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\nexpected: 2"},
+		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\nexpected: 2"},
+		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\nexpected: 1"},
+		{"LessOrEqual", func(t Testing) bool { return LessOrEqual(t, 2, 1, "ctx: ") }, "ctx: Should be less or equal\n  actual: 2\nexpected: 1"},
+		{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  object: []int{1}\n  actual: 1\nexpected: 2"},
+		{"Length invalid", func(t Testing) bool { return Length(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
+		{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  object: []int{1}"},
+		{"Empty invalid", func(t Testing) bool { return Empty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
+		{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  object: []int{}"},
+		{"NotEmpty invalid", func(t Testing) bool { return NotEmpty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
+		{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  object: []int{1}\n element: 2"},
+		{"Contains invalid", func(t Testing) bool { return Contains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
+		{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  object: []int{1}\n element: \"a\""},
+		{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  object: []int{1}\n element: 1"},
+		{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
+		{"Error", func(t Testing) bool { return Error(t, nil, "ctx: ") }, "ctx: Should be error"},
+		{"NoError", func(t Testing) bool { return NoError(t, err, "ctx: ") }, "ctx: Should not be error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}"},
+		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, err, target, "ctx: ") }, "ctx: Should be same error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: &errors.errorString{s:\"target\"}"},
+		{"NotErrorIs", func(t Testing) bool { return NotErrorIs(t, err, err, "ctx: ") }, "ctx: Should not be same error\n"},
+		{"Matches", func(t Testing) bool { return Matches(t, "a", "b", "ctx: ") }, "ctx: Should match regexp\n  actual: a\n pattern: b"},
+		{"Matches invalid", func(t Testing) bool { return Matches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
+		{"NotMatches", func(t Testing) bool { return NotMatches(t, "a", "a", "ctx: ") }, "ctx: Should not match regexp\n  actual: a\n pattern: a"},
+		{"NotMatches invalid", func(t Testing) bool { return NotMatches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
+		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
+		{"EqualJSON invalid actual", func(t Testing) bool { return EqualJSON(t, "x", "2", "ctx: ") }, "ctx: Should be valid JSON\n  actual: x\n     err: "},
+		{"EqualJSON invalid expected", func(t Testing) bool { return EqualJSON(t, "1", "x", "ctx: ") }, "ctx: Should be valid JSON\nexpected: x\n     err: "},
+		{"JSON", func(t Testing) bool { return JSON(t, 1, "2", "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
+		{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should not be error\n"},
+		{"Panics", func(t Testing) bool { return Panics(t, func() {}, nil, "ctx: ") }, "ctx: Should panic"},
+		{"Panics value", func(t Testing) bool { return Panics(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
+		{"Panics error", func(t Testing) bool { return Panics(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with error\n  actual: \"a\"\nexpected: ["},
+		{"Panics wrong error", func(t Testing) bool { return Panics(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should be same error\n"},
+		{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n  value: \"a\""},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tt := newLogger()
+			if c.assert(tt) {
+				t.Errorf("should return false")
+			}
+
+			if !strings.HasPrefix(tt.LastError, c.expected) {
+				t.Errorf("message should start with %q, got %q", c.expected, tt.LastError)
+			}
+		})
+	}
 }
 
 type testType string
@@ -260,8 +386,18 @@ func (t testErr) Error() string {
 	return "Custom error"
 }
 
+type testSliceErr []string
+
+func (t testSliceErr) Error() string {
+	return "Slice error"
+}
+
 type logger struct {
 	LastError string
+}
+
+func newLogger() *logger {
+	return &logger{}
 }
 
 func (m *logger) Helper() {
@@ -271,21 +407,15 @@ func (m *logger) Errorf(format string, args ...any) {
 	m.LastError = fmt.Sprintf(format, args...)
 }
 
-func (m *logger) Clear() {
-	m.LastError = ""
-}
-
-var tt = &logger{}
-
 func testAssert(t *testing.T, condition bool, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if True(tt, condition) != result {
 		t.Errorf("True(%#v) should return %#v: %s", condition, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if False(tt, condition) != !result {
 		t.Errorf("False(%#v) should return %#v: %s", condition, !result, tt.LastError)
 	}
@@ -294,12 +424,12 @@ func testAssert(t *testing.T, condition bool, result bool) {
 func testEqual[T Comparable](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Equal(tt, actual, expected) != result {
 		t.Errorf("Equal(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotEqual(tt, actual, expected) != !result {
 		t.Errorf("NotEqual(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
 	}
@@ -308,12 +438,12 @@ func testEqual[T Comparable](t *testing.T, actual, expected T, result bool) {
 func testEqualDelta[T Numeric](t *testing.T, actual, expected, delta T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if EqualDelta(tt, actual, expected, delta) != result {
 		t.Errorf("EqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotEqualDelta(tt, actual, expected, delta) != !result {
 		t.Errorf("NotEqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, !result, tt.LastError)
 	}
@@ -322,21 +452,35 @@ func testEqualDelta[T Numeric](t *testing.T, actual, expected, delta T, result b
 func testSame[T Reference](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Same(tt, actual, expected) != result {
 		t.Errorf("Same(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotSame(tt, actual, expected) != !result {
 		t.Errorf("NotSame(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+	}
+}
+
+func testSameInvalid[T Reference](t *testing.T, actual, expected T) {
+	t.Helper()
+
+	tt := newLogger()
+	if Same(tt, actual, expected) != false {
+		t.Errorf("Same(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotSame(tt, actual, expected) != false {
+		t.Errorf("NotSame(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
 	}
 }
 
 func testGreater[T Numeric](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Greater(tt, actual, expected) != result {
 		t.Errorf("Greater(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -345,7 +489,7 @@ func testGreater[T Numeric](t *testing.T, actual, expected T, result bool) {
 func testGreaterOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if GreaterOrEqual(tt, actual, expected) != result {
 		t.Errorf("GreaterOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -354,7 +498,7 @@ func testGreaterOrEqual[T Numeric](t *testing.T, actual, expected T, result bool
 func testLess[T Numeric](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Less(tt, actual, expected) != result {
 		t.Errorf("Less(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -363,7 +507,7 @@ func testLess[T Numeric](t *testing.T, actual, expected T, result bool) {
 func testLessOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if LessOrEqual(tt, actual, expected) != result {
 		t.Errorf("LessOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -372,7 +516,7 @@ func testLessOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
 func testLength[T any](t *testing.T, actual T, expected int, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Length(tt, actual, expected) != result {
 		t.Errorf("Length(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -381,12 +525,12 @@ func testLength[T any](t *testing.T, actual T, expected int, result bool) {
 func testEmpty[T any](t *testing.T, object T, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Empty(tt, object) != result {
 		t.Errorf("Empty(%#v) should return %#v: %s", object, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotEmpty(tt, object) != !result {
 		t.Errorf("NotEmpty(%#v) should return %#v: %s", object, !result, tt.LastError)
 	}
@@ -395,26 +539,26 @@ func testEmpty[T any](t *testing.T, object T, result bool) {
 func testContains[S Iterable[E], E Comparable](t *testing.T, object S, element E, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Contains(tt, object, element) != result {
-		t.Errorf("Contains(%#v,%#v) should return %#v", object, element, result)
+		t.Errorf("Contains(%#v,%#v) should return %#v: %s", object, element, result, tt.LastError)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotContains(tt, object, element) != !result {
-		t.Errorf("NotContains(%#v,%#v) should return %#v", object, element, !result)
+		t.Errorf("NotContains(%#v,%#v) should return %#v: %s", object, element, !result, tt.LastError)
 	}
 }
 
 func testError(t *testing.T, err error, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Error(tt, err) != result {
 		t.Errorf("Error(%#v) should return %#v", err, result)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NoError(tt, err) != !result {
 		t.Errorf("NoError(%#v) should return %#v", err, !result)
 	}
@@ -423,12 +567,12 @@ func testError(t *testing.T, err error, result bool) {
 func testErrorIs(t *testing.T, err, target error, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if ErrorIs(tt, err, target) != result {
 		t.Errorf("ErrorIs(%#v,%#v) should return %#v", err, target, result)
 	}
 
-	tt.Clear()
+	tt = newLogger()
 	if NotErrorIs(tt, err, target) != !result {
 		t.Errorf("NotErrorIs(%#v,%#v) should return %#v", err, target, !result)
 	}
@@ -437,14 +581,14 @@ func testErrorIs(t *testing.T, err, target error, result bool) {
 func testMatches(t *testing.T, actual, pattern string, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Matches(tt, actual, pattern) != result {
 		t.Errorf("Matches(%#v,%#v) should return %#v: %s", actual, pattern, result, tt.LastError)
 	}
 
 	// NotMatches inverts the result only for valid patterns
 	if _, err := regexp.Compile(pattern); err == nil {
-		tt.Clear()
+		tt = newLogger()
 		if NotMatches(tt, actual, pattern) != !result {
 			t.Errorf("NotMatches(%#v,%#v) should return %#v: %s", actual, pattern, !result, tt.LastError)
 		}
@@ -454,7 +598,7 @@ func testMatches(t *testing.T, actual, pattern string, result bool) {
 func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if EqualJSON(tt, actual, expected) != result {
 		t.Errorf("EqualJSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
@@ -463,7 +607,7 @@ func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 func testPanics(t *testing.T, fn func(), expected any, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if Panics(tt, fn, expected) != result {
 		t.Errorf("Panics(%#v) should return %#v: %s", expected, result, tt.LastError)
 	}
@@ -472,7 +616,7 @@ func testPanics(t *testing.T, fn func(), expected any, result bool) {
 func testNotPanics(t *testing.T, fn func(), result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if NotPanics(tt, fn) != result {
 		t.Errorf("NotPanics() should return %#v: %s", result, tt.LastError)
 	}
@@ -481,12 +625,35 @@ func testNotPanics(t *testing.T, fn func(), result bool) {
 func testJSON(t *testing.T, actual any, expected string, result bool) {
 	t.Helper()
 
-	tt.Clear()
+	tt := newLogger()
 	if JSON(tt, actual, expected) != result {
 		t.Errorf("JSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
 	}
 }
 
+func testContainsInvalid[S Iterable[E], E Comparable](t *testing.T, object S, element E) {
+	t.Helper()
+
+	tt := newLogger()
+	if Contains(tt, object, element) != false {
+		t.Errorf("Contains(%#v,%#v) should return false: %s", object, element, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotContains(tt, object, element) != false {
+		t.Errorf("NotContains(%#v,%#v) should return false: %s", object, element, tt.LastError)
+	}
+}
+
 func ptr(i int) *int {
 	return &i
+}
+
+func bufferedChan(n int) chan int {
+	c := make(chan int, n)
+	for i := 0; i < n; i++ {
+		c <- i
+	}
+
+	return c
 }

@@ -40,21 +40,21 @@ func TestFoo(t *testing.T) {
 |---|---|
 | `True(t, condition)` | condition is true |
 | `False(t, condition)` | condition is false |
-| `Same(t, actual, expected)` | pointers reference the same object |
-| `NotSame(t, actual, expected)` | pointers reference different objects |
+| `Same(t, actual, expected)` | references (pointers, slices, maps, channels) have the same type and address |
+| `NotSame(t, actual, expected)` | references have a different type or address |
 | `Equal(t, actual, expected)` | values are equal (deep) |
 | `NotEqual(t, actual, expected)` | values are not equal |
 | `EqualDelta(t, actual, expected, delta)` | numeric values differ by at most delta |
 | `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta |
-| `Greater(t, actual, expected)` | actual > expected |
+| `Greater(t, actual, expected)` | actual > expected (fails on NaN) |
 | `GreaterOrEqual(t, actual, expected)` | actual >= expected |
-| `Less(t, actual, expected)` | actual < expected |
+| `Less(t, actual, expected)` | actual < expected (fails on NaN) |
 | `LessOrEqual(t, actual, expected)` | actual <= expected |
-| `Length(t, object, n)` | string/slice/map/channel has length n |
-| `Empty(t, object)` | string/slice/map/channel has zero length |
-| `NotEmpty(t, object)` | string/slice/map/channel has non-zero length |
-| `Contains(t, object, element)` | string/slice/map/channel contains element |
-| `NotContains(t, object, element)` | string/slice/map/channel does not contain element |
+| `Length(t, object, n)` | string/array/slice/map/channel has length n |
+| `Empty(t, object)` | string/array/slice/map/channel has zero length |
+| `NotEmpty(t, object)` | string/array/slice/map/channel has non-zero length |
+| `Contains(t, object, element)` | string contains substring, or array/slice/map values contain element |
+| `NotContains(t, object, element)` | string does not contain substring, or array/slice/map values do not contain element |
 | `Error(t, err)` | error is not nil |
 | `NoError(t, err)` | error is nil |
 | `ErrorIs(t, err, target)` | error unwraps to target |

@@ -52,32 +52,32 @@ func False(t Testing, condition bool, messages ...string) bool {
 	return true
 }
 
-// Same asserts that two pointers reference the same object.
+// Same asserts that two references point to the same object.
 //
-// Both arguments must be pointer variables. Pointer variable equality is
-// determined based on the equality of both type and value.
+// Both arguments must be references: pointers, slices, maps or channels.
+// Two references are the same when they have the same type and address.
 func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if valid, ok := same[T](expected, actual); !ok {
-		return Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
-	} else if !valid {
+	if identical, why := same(actual, expected); why != valid {
+		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", message(messages), why, print(actual), print(expected))
+	} else if !identical {
 		return Failf(t, "%sShould be same\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
 	return true
 }
 
-// NotSame asserts that two pointers do NOT reference the same object.
+// NotSame asserts that two references do NOT point to the same object.
 //
-// Both arguments must be pointer variables. Pointer variable equality is
-// determined based on the equality of both type and value.
+// Both arguments must be references: pointers, slices, maps or channels.
+// Two references are the same when they have the same type and address.
 func NotSame[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if valid, ok := same(expected, actual); !ok {
-		Failf(t, "%sShould be pointers\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
-	} else if valid {
+	if identical, why := same(actual, expected); why != valid {
+		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", message(messages), why, print(actual), print(expected))
+	} else if identical {
 		return Failf(t, "%sShould not be same\n  actual: %s", message(messages), print(actual))
 	}
 
@@ -112,9 +112,9 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 	return true
 }
 
-// EqualDelta asserts that two numeric values difference is less than delta.
+// EqualDelta asserts that two numeric values differ by at most delta.
 //
-// Panics if delta is negative.
+// Panics if delta is negative. NaN is only equal to NaN.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
@@ -125,9 +125,9 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	return true
 }
 
-// NotEqualDelta asserts that two numeric values difference is greater than delta.
+// NotEqualDelta asserts that two numeric values differ by more than delta.
 //
-// Panics if delta is negative.
+// Panics if delta is negative. NaN is only equal to NaN.
 func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
@@ -139,10 +139,12 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 }
 
 // Greater asserts that actual is greater than expected.
+//
+// Fails when either value is NaN.
 func Greater[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if actual <= expected {
+	if !orderable(actual, expected) || actual <= expected {
 		return Failf(t, "%sShould be greater\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
@@ -150,10 +152,12 @@ func Greater[T Numeric](t Testing, actual, expected T, messages ...string) bool 
 }
 
 // GreaterOrEqual asserts that actual is greater than or equal to expected.
+//
+// Fails when either value is NaN.
 func GreaterOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if actual < expected {
+	if !orderable(actual, expected) || actual < expected {
 		return Failf(t, "%sShould be greater or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
@@ -161,10 +165,12 @@ func GreaterOrEqual[T Numeric](t Testing, actual, expected T, messages ...string
 }
 
 // Less asserts that actual is less than expected.
+//
+// Fails when either value is NaN.
 func Less[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if actual >= expected {
+	if !orderable(actual, expected) || actual >= expected {
 		return Failf(t, "%sShould be less\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
@@ -172,10 +178,12 @@ func Less[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 }
 
 // LessOrEqual asserts that actual is less than or equal to expected.
+//
+// Fails when either value is NaN.
 func LessOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if actual > expected {
+	if !orderable(actual, expected) || actual > expected {
 		return Failf(t, "%sShould be less or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
 	}
 
@@ -183,21 +191,29 @@ func LessOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) b
 }
 
 // Length asserts that object has given length.
+//
+// Works with strings, arrays, slices, maps and channels.
 func Length[S Iterable[any]](t Testing, object S, expected int, messages ...string) bool {
 	t.Helper()
 
-	if actual := length(object); actual != expected {
-		return Failf(t, "%sShould have element length\n  object: %#v\n  actual: %d\nexpected: %d", message(messages), object, actual, expected)
+	if actual, why := length(object); why != valid {
+		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+	} else if actual != expected {
+		return Failf(t, "%sShould have length\n  object: %#v\n  actual: %d\nexpected: %d", message(messages), object, actual, expected)
 	}
 
 	return true
 }
 
 // Empty asserts that object has zero length.
+//
+// Works with strings, arrays, slices, maps and channels.
 func Empty[S Iterable[any]](t Testing, object S, messages ...string) bool {
 	t.Helper()
 
-	if length(object) != 0 {
+	if actual, why := length(object); why != valid {
+		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+	} else if actual != 0 {
 		return Failf(t, "%sShould be empty\n  object: %#v", message(messages), object)
 	}
 
@@ -205,10 +221,14 @@ func Empty[S Iterable[any]](t Testing, object S, messages ...string) bool {
 }
 
 // NotEmpty asserts that object has non-zero length.
+//
+// Works with strings, arrays, slices, maps and channels.
 func NotEmpty[S Iterable[any]](t Testing, object S, messages ...string) bool {
 	t.Helper()
 
-	if length(object) == 0 {
+	if actual, why := length(object); why != valid {
+		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+	} else if actual == 0 {
 		return Failf(t, "%sShould not be empty\n  object: %#v", message(messages), object)
 	}
 
@@ -217,12 +237,12 @@ func NotEmpty[S Iterable[any]](t Testing, object S, messages ...string) bool {
 
 // Contains asserts that object contains given element.
 //
-// Works with strings, arrays, slices, maps values and channels.
+// Works with strings, arrays, slices and map values.
 func Contains[S Iterable[E], E Comparable](t Testing, object S, element E, messages ...string) bool {
 	t.Helper()
 
-	if found, ok := contains(object, element); !ok {
-		return Failf(t, "%sShould be iterable\n  object: %#v", message(messages), object)
+	if found, why := contains(object, element); why != valid {
+		return Failf(t, "%s%s\n  object: %#v\n element: %#v", message(messages), why, object, element)
 	} else if !found {
 		return Failf(t, "%sShould contain element\n  object: %#v\n element: %#v", message(messages), object, element)
 	}
@@ -232,12 +252,12 @@ func Contains[S Iterable[E], E Comparable](t Testing, object S, element E, messa
 
 // NotContains asserts that object does NOT contain given element.
 //
-// Works with strings, arrays, slices, maps values and channels.
+// Works with strings, arrays, slices and map values.
 func NotContains[S Iterable[E], E Comparable](t Testing, object S, element E, messages ...string) bool {
 	t.Helper()
 
-	if found, ok := contains(object, element); !ok {
-		Failf(t, "%sShould be iterable\n  object: %#v", message(messages), object)
+	if found, why := contains(object, element); why != valid {
+		return Failf(t, "%s%s\n  object: %#v\n element: %#v", message(messages), why, object, element)
 	} else if found {
 		return Failf(t, "%sShould not contain element\n  object: %#v\n element: %#v", message(messages), object, element)
 	}
@@ -339,7 +359,7 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 		return Failf(t, "%sShould be valid JSON\nexpected: %s\n     err: %v", message(messages), expected, err)
 	}
 
-	return Equal(t, actualJSON, expectedJSON)
+	return Equal(t, actualJSON, expectedJSON, messages...)
 }
 
 // JSON asserts that object can be marshaled to expected JSON string.

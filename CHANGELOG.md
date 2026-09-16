@@ -6,7 +6,20 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/gravitton/assert/compare/v1.4.0...master)
+## [Unreleased](https://github.com/gravitton/assert/compare/v1.4.0...main)
+### Changed
+- `Same` and `NotSame` now require both type and address to match, and report non-reference arguments as `Should be reference`; function values are no longer accepted as references
+- `Contains` and `NotContains` report an element whose type does not fit the container as `Should have element of same type` instead of `Should be iterable`
+- `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` fail when either value is NaN
+- `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`
+
+### Fixed
+- `NotSame` and `NotContains` returned `true` after reporting a non-reference or non-iterable argument
+- `Equal`, `NotEqual`, `Same`, `NotSame` and `Panics` panicked when printing a nil pointer
+- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` panicked on unsupported types instead of failing; `Contains` on a channel no longer panics but fails as not iterable
+- `Contains` on a string with a non-string element compared against reflect's debug representation
+- `EqualJSON` and `JSON` dropped the custom message prefix on the comparison failure
+- `Error` and `NoError` now treat nil map, slice, func and channel errors as nil
 
 
 ## [v1.4.0 (2026-08-25)](https://github.com/gravitton/assert/compare/v1.3.0...v1.4.0)
