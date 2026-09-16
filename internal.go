@@ -1,8 +1,9 @@
 package assert
 
 import (
+	"encoding/json"
 	"fmt"
-	"math"
+	"math/big"
 	"reflect"
 	"strings"
 )
@@ -16,12 +17,14 @@ const (
 	elementType  reason = "Should have element of same type"
 )
 
+type jsonNumber string
+
 func equal[T Comparable](actual, expected T) bool {
 	return reflect.DeepEqual(actual, expected)
 }
 
 func equalDelta[T Numeric](actual, expected, delta T) bool {
-	if delta < 0 {
+	if delta < 0 || delta != delta {
 		panic("delta must be positive")
 	}
 
@@ -37,8 +40,8 @@ func equalDeltaFloat(actual, expected, delta float64) bool {
 		return true
 	}
 
-	if math.IsNaN(actual) || math.IsNaN(expected) {
-		return math.IsNaN(actual) && math.IsNaN(expected)
+	if actual != actual || expected != expected {
+		return actual != actual && expected != expected
 	}
 
 	diff := expected - actual
@@ -55,18 +58,22 @@ func integerDistance[T Numeric](a, b T) uint64 {
 }
 
 func isFloat[T Numeric]() bool {
-	var zero T
-
-	switch reflect.TypeOf(zero).Kind() {
-	case reflect.Float32, reflect.Float64:
-		return true
-	default:
-		return false
-	}
+	return T(1)/T(2) != 0
 }
 
-func orderable[T Numeric](actual, expected T) bool {
-	return actual == actual && expected == expected
+func compare[T Numeric](actual, expected T) (int, bool) {
+	if actual != actual || expected != expected {
+		return 0, false
+	}
+
+	switch {
+	case actual < expected:
+		return -1, true
+	case actual > expected:
+		return 1, true
+	default:
+		return 0, true
+	}
 }
 
 func same[T Reference](actual, expected T) (bool, reason) {
@@ -81,19 +88,27 @@ func same[T Reference](actual, expected T) (bool, reason) {
 		return false, valid
 	}
 
-	return valueOfActual.Pointer() == valueOfExpected.Pointer(), valid
+	if valueOfActual.Pointer() != valueOfExpected.Pointer() {
+		return false, valid
+	}
+
+	if valueOfActual.Kind() == reflect.Slice {
+		return valueOfActual.Len() == valueOfExpected.Len() && valueOfActual.Cap() == valueOfExpected.Cap(), valid
+	}
+
+	return true, valid
 }
 
 func isReference(value reflect.Value) bool {
 	switch value.Kind() {
-	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Chan, reflect.UnsafePointer:
+	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Chan:
 		return true
 	default:
 		return false
 	}
 }
 
-func length[S Iterable[any]](object S) (int, reason) {
+func length[S Iterable](object S) (int, reason) {
 	valueOf := reflect.ValueOf(object)
 
 	switch valueOf.Kind() {
@@ -104,7 +119,7 @@ func length[S Iterable[any]](object S) (int, reason) {
 	}
 }
 
-func contains[S Iterable[E], E Comparable](object S, element E) (bool, reason) {
+func contains[S Iterable, E Comparable](object S, element E) (bool, reason) {
 	valueOf := reflect.ValueOf(object)
 
 	switch valueOf.Kind() {
@@ -147,6 +162,51 @@ func assignable(from, to reflect.Type) bool {
 	return from.AssignableTo(to)
 }
 
+func decodeJSON(s string) (any, error) {
+	decoder := json.NewDecoder(strings.NewReader(s))
+	decoder.UseNumber()
+
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+
+	if rest := strings.TrimSpace(s[decoder.InputOffset():]); rest != "" {
+		return nil, fmt.Errorf("invalid character %q after top-level value", rest[0])
+	}
+
+	return normalizeJSON(value), nil
+}
+
+func normalizeJSON(value any) any {
+	switch v := value.(type) {
+	case json.Number:
+		return normalizeJSONNumber(v)
+	case []any:
+		for i, item := range v {
+			v[i] = normalizeJSON(item)
+		}
+
+		return v
+	case map[string]any:
+		for key, item := range v {
+			v[key] = normalizeJSON(item)
+		}
+
+		return v
+	default:
+		return value
+	}
+}
+
+func normalizeJSONNumber(number json.Number) jsonNumber {
+	if rat, ok := new(big.Rat).SetString(number.String()); ok {
+		return jsonNumber(rat.RatString())
+	}
+
+	return jsonNumber(number)
+}
+
 func panics(fn func()) (panicked bool, value any) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -157,18 +217,18 @@ func panics(fn func()) (panicked bool, value any) {
 
 	fn()
 
-	return false, valid
+	return false, nil
 }
 
-func isNilError(err error) bool {
-	if err == nil {
+func isNil(object any) bool {
+	if object == nil {
 		return true
 	}
 
-	value := reflect.ValueOf(err)
+	value := reflect.ValueOf(object)
 
 	switch value.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface:
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
 		return value.IsNil()
 	default:
 		return false

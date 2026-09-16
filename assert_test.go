@@ -87,8 +87,32 @@ func TestEqualDelta(t *testing.T) {
 	testEqualDelta[int64](t, math.MaxInt64, math.MinInt64, math.MaxInt64, false)
 	testEqualDelta[int8](t, 127, -128, 127, false)
 
-	testPanics(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
-	testPanics(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
+	testPanicsWith(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
+	testPanicsWith(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be positive", true)
+	testPanicsWith(t, func() { EqualDelta(newLogger(), 1.0, 2.0, math.NaN()) }, "delta must be positive", true)
+}
+
+func TestNil(t *testing.T) {
+	var p *int
+	var s []int
+	var m map[string]int
+	var c chan int
+	var f func()
+	var e error
+
+	testNil(t, nil, true)
+	testNil(t, p, true)
+	testNil(t, s, true)
+	testNil(t, m, true)
+	testNil(t, c, true)
+	testNil(t, f, true)
+	testNil(t, e, true)
+	testNil(t, ptr(1), false)
+	testNil(t, []int{}, false)
+	testNil(t, map[string]int{}, false)
+	testNil(t, 0, false)
+	testNil(t, "", false)
+	testNil(t, testStruct{}, false)
 }
 
 func TestSame(t *testing.T) {
@@ -108,6 +132,11 @@ func TestSame(t *testing.T) {
 
 	s := []int{1, 2}
 	testSame(t, s, s, true)
+	testSame(t, s, s[:], true)
+	testSame(t, s, s[:0], false)
+	testSame(t, s, s[:1], false)
+	testSame(t, s[:1], s[:1], true)
+	testSame(t, s, s[1:], false)
 	testSame(t, &s, &s, true)
 	testSame(t, []int{1, 2}, []int{1, 2}, false)
 	testSame(t, []byte("Hello World"), []byte("Hello World"), false)
@@ -123,46 +152,46 @@ func TestSame(t *testing.T) {
 }
 
 func TestGreater(t *testing.T) {
-	testGreater(t, 2, 1, true)
-	testGreater(t, 1, 1, false)
-	testGreater(t, 0, 1, false)
-	testGreater(t, -1, -2, true)
-	testGreater[float64](t, 1.1, 1.0, true)
-	testGreater[float64](t, 1.0, 1.0, false)
-	testGreater[uint32](t, 5, 3, true)
-	testGreater(t, math.NaN(), 1.0, false)
-	testGreater(t, 1.0, math.NaN(), false)
+	testOrder(t, Greater, "Greater", 2, 1, true)
+	testOrder(t, Greater, "Greater", 1, 1, false)
+	testOrder(t, Greater, "Greater", 0, 1, false)
+	testOrder(t, Greater, "Greater", -1, -2, true)
+	testOrder[float64](t, Greater, "Greater", 1.1, 1.0, true)
+	testOrder[float64](t, Greater, "Greater", 1.0, 1.0, false)
+	testOrder[uint32](t, Greater, "Greater", 5, 3, true)
+	testOrder(t, Greater, "Greater", math.NaN(), 1.0, false)
+	testOrder(t, Greater, "Greater", 1.0, math.NaN(), false)
 }
 
 func TestGreaterOrEqual(t *testing.T) {
-	testGreaterOrEqual(t, 2, 1, true)
-	testGreaterOrEqual(t, 1, 1, true)
-	testGreaterOrEqual(t, 0, 1, false)
-	testGreaterOrEqual(t, -1, -2, true)
-	testGreaterOrEqual[float64](t, 1.0, 1.0, true)
-	testGreaterOrEqual[float64](t, 0.9, 1.0, false)
-	testGreaterOrEqual(t, math.NaN(), math.NaN(), false)
+	testOrder(t, GreaterOrEqual, "GreaterOrEqual", 2, 1, true)
+	testOrder(t, GreaterOrEqual, "GreaterOrEqual", 1, 1, true)
+	testOrder(t, GreaterOrEqual, "GreaterOrEqual", 0, 1, false)
+	testOrder(t, GreaterOrEqual, "GreaterOrEqual", -1, -2, true)
+	testOrder[float64](t, GreaterOrEqual, "GreaterOrEqual", 1.0, 1.0, true)
+	testOrder[float64](t, GreaterOrEqual, "GreaterOrEqual", 0.9, 1.0, false)
+	testOrder(t, GreaterOrEqual, "GreaterOrEqual", math.NaN(), math.NaN(), false)
 }
 
 func TestLess(t *testing.T) {
-	testLess(t, 1, 2, true)
-	testLess(t, 1, 1, false)
-	testLess(t, 2, 1, false)
-	testLess(t, -2, -1, true)
-	testLess[float64](t, 1.0, 1.1, true)
-	testLess[float64](t, 1.0, 1.0, false)
-	testLess[uint32](t, 3, 5, true)
-	testLess(t, math.NaN(), 1.0, false)
+	testOrder(t, Less, "Less", 1, 2, true)
+	testOrder(t, Less, "Less", 1, 1, false)
+	testOrder(t, Less, "Less", 2, 1, false)
+	testOrder(t, Less, "Less", -2, -1, true)
+	testOrder[float64](t, Less, "Less", 1.0, 1.1, true)
+	testOrder[float64](t, Less, "Less", 1.0, 1.0, false)
+	testOrder[uint32](t, Less, "Less", 3, 5, true)
+	testOrder(t, Less, "Less", math.NaN(), 1.0, false)
 }
 
 func TestLessOrEqual(t *testing.T) {
-	testLessOrEqual(t, 1, 2, true)
-	testLessOrEqual(t, 1, 1, true)
-	testLessOrEqual(t, 2, 1, false)
-	testLessOrEqual(t, -2, -1, true)
-	testLessOrEqual[float64](t, 1.0, 1.0, true)
-	testLessOrEqual[float64](t, 1.1, 1.0, false)
-	testLessOrEqual(t, 1.0, math.NaN(), false)
+	testOrder(t, LessOrEqual, "LessOrEqual", 1, 2, true)
+	testOrder(t, LessOrEqual, "LessOrEqual", 1, 1, true)
+	testOrder(t, LessOrEqual, "LessOrEqual", 2, 1, false)
+	testOrder(t, LessOrEqual, "LessOrEqual", -2, -1, true)
+	testOrder[float64](t, LessOrEqual, "LessOrEqual", 1.0, 1.0, true)
+	testOrder[float64](t, LessOrEqual, "LessOrEqual", 1.1, 1.0, false)
+	testOrder(t, LessOrEqual, "LessOrEqual", 1.0, math.NaN(), false)
 }
 
 func TestLength(t *testing.T) {
@@ -173,6 +202,9 @@ func TestLength(t *testing.T) {
 	testLength(t, map[string]bool{"a": true, "b": false}, 2, true)
 	testLength(t, [2]int{1, 2}, 2, true)
 	testLength(t, bufferedChan(3), 3, true)
+	testLength(t, []int(nil), 0, true)
+	testLength(t, map[string]int(nil), 0, true)
+	testLength(t, (chan int)(nil), 0, true)
 	testLength(t, 5, 1, false)
 	testLength[any](t, nil, 0, false)
 }
@@ -184,6 +216,9 @@ func TestEmpty(t *testing.T) {
 	testEmpty(t, "a", false)
 	testEmpty(t, map[string]bool{}, true)
 	testEmpty(t, map[string]bool{"a": true}, false)
+	testEmpty(t, []int(nil), true)
+	testEmpty(t, map[string]int(nil), true)
+	testEmpty(t, (chan int)(nil), true)
 	testEmpty(t, bufferedChan(0), true)
 	testEmpty(t, bufferedChan(1), false)
 
@@ -212,6 +247,12 @@ func TestContains(t *testing.T) {
 	testContains[[]any, any](t, []any{1, nil}, nil, true)
 	testContains[[]any, any](t, []any{1, 2}, nil, false)
 
+	p := ptr(1)
+	testContains(t, []*int{p}, p, true)
+	testContains(t, []*int{p}, ptr(1), true)
+	testContains(t, []*int{p}, ptr(2), false)
+	testContains[[]*int, *int](t, []*int{p}, nil, false)
+	testContains[[]*int, *int](t, []*int{p, nil}, nil, true)
 	testContains(t, []any{1, "two", 3}, 3, true)
 	testContains(t, []any{1, "two", 3}, 4, false)
 	testContains(t, []any{1, "two", 3}, "two", true)
@@ -247,6 +288,17 @@ func TestErrorIs(t *testing.T) {
 	testErrorIs(t, errors.Join(errors.New("ooh1"), err), err, true)
 }
 
+func TestErrorAs(t *testing.T) {
+	var target *testPtrErr
+	var iface interface{ Error() string }
+
+	testErrorAs(t, &testPtrErr{"a"}, &target, true)
+	testErrorAs(t, fmt.Errorf("wrapped: %w", &testPtrErr{"a"}), &target, true)
+	testErrorAs(t, errors.New("plain"), &target, false)
+	testErrorAs(t, nil, &target, false)
+	testErrorAs(t, errors.New("plain"), &iface, true)
+}
+
 func TestMatches(t *testing.T) {
 	testMatches(t, "Hello World", `^Hello`, true)
 	testMatches(t, "Hello World", `World$`, true)
@@ -269,6 +321,14 @@ func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, "123.3", "123", false)
 	testEqualJSON(t, "false", "false", true)
 	testEqualJSON(t, `{"x":10, "y":16}`, `{"x":10,"y":16.000}`, true)
+	testEqualJSON(t, `{"id":9007199254740993}`, `{"id":9007199254740992}`, false)
+	testEqualJSON(t, `{"id":9007199254740993}`, `{"id":9007199254740993}`, true)
+	testEqualJSON(t, `[1e2, 0.5]`, `[100, 5e-1]`, true)
+	testEqualJSON(t, `[1, [2, {"a": 3.0}]]`, `[1, [2, {"a": 3}]]`, true)
+	testEqualJSON(t, `1e9999999`, `1e9999999`, true)
+	testEqualJSON(t, `1e9999999`, `1e9999998`, false)
+	testEqualJSON(t, `1 2`, `1`, false)
+	testEqualJSON(t, `1`, `1 }`, false)
 }
 
 func TestJSON(t *testing.T) {
@@ -284,17 +344,22 @@ func TestJSON(t *testing.T) {
 }
 
 func TestPanics(t *testing.T) {
-	testPanics(t, func() { panic("boom") }, nil, true)
-	testPanics(t, func() {}, nil, false)
-	testPanics(t, func() { panic("boom") }, "boom", true)
-	testPanics(t, func() { panic("boom") }, "other", false)
+	testPanics(t, func() { panic("boom") }, true)
+	testPanics(t, func() {}, false)
+	testPanics(t, func() { panic(nil) }, true)
+}
+
+func TestPanicsWith(t *testing.T) {
+	testPanicsWith(t, func() {}, "boom", false)
+	testPanicsWith(t, func() { panic("boom") }, "boom", true)
+	testPanicsWith(t, func() { panic("boom") }, "other", false)
+	testPanicsWith(t, func() { panic("boom") }, testType("boom"), false)
 
 	err := errors.New("oops")
-	testPanics(t, func() { panic(err) }, err, true)
-	testPanics(t, func() { panic(fmt.Errorf("wrapped: %w", err)) }, err, true)
-	testPanics(t, func() { panic(errors.New("other")) }, err, false)
-	testPanics(t, func() { panic("not-an-error") }, err, false)
-	testPanics(t, func() { panic(nil) }, nil, true)
+	testPanicsWith(t, func() { panic(err) }, err, true)
+	testPanicsWith(t, func() { panic(fmt.Errorf("wrapped: %w", err)) }, err, true)
+	testPanicsWith(t, func() { panic(errors.New("other")) }, err, false)
+	testPanicsWith(t, func() { panic("not-an-error") }, err, false)
 }
 
 func TestNotPanics(t *testing.T) {
@@ -306,6 +371,7 @@ func TestMessages(t *testing.T) {
 	err := errors.New("oops")
 	target := errors.New("target")
 	x := 1
+	var ptrErr *testPtrErr
 
 	cases := []struct {
 		name     string
@@ -319,11 +385,13 @@ func TestMessages(t *testing.T) {
 		{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
 		{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, "ctx: Should not be same\n"},
 		{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
-		{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
-		{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal:\n  actual: (*int)(nil)\nexpected: ["},
+		{"Nil", func(t Testing) bool { return Nil(t, &x, "ctx: ") }, "ctx: Should be nil\n  actual: ["},
+		{"NotNil", func(t Testing) bool { return NotNil(t, (*int)(nil), "ctx: ") }, "ctx: Should not be nil\n  actual: (*int)(nil)"},
+		{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal\n  actual: 1\nexpected: 2"},
+		{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal\n  actual: (*int)(nil)\nexpected: ["},
 		{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
-		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta:\n  actual: 1\nexpected: 3"},
-		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta:\n  actual: 1\nexpected: 2"},
+		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1\nexpected: 3"},
+		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta\n  actual: 1\nexpected: 2"},
 		{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\nexpected: 2"},
 		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\nexpected: 2"},
 		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\nexpected: 1"},
@@ -341,21 +409,24 @@ func TestMessages(t *testing.T) {
 		{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
 		{"Error", func(t Testing) bool { return Error(t, nil, "ctx: ") }, "ctx: Should be error"},
 		{"NoError", func(t Testing) bool { return NoError(t, err, "ctx: ") }, "ctx: Should not be error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}"},
-		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, err, target, "ctx: ") }, "ctx: Should be same error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: &errors.errorString{s:\"target\"}"},
-		{"NotErrorIs", func(t Testing) bool { return NotErrorIs(t, err, err, "ctx: ") }, "ctx: Should not be same error\n"},
+		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, err, target, "ctx: ") }, "ctx: Should match error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: &errors.errorString{s:\"target\"}"},
+		{"NotErrorIs", func(t Testing) bool { return NotErrorIs(t, err, err, "ctx: ") }, "ctx: Should not match error\n"},
+		{"ErrorAs", func(t Testing) bool { return ErrorAs(t, err, &ptrErr, "ctx: ") }, "ctx: Should be assignable to target\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: **assert.testPtrErr"},
 		{"Matches", func(t Testing) bool { return Matches(t, "a", "b", "ctx: ") }, "ctx: Should match regexp\n  actual: a\n pattern: b"},
 		{"Matches invalid", func(t Testing) bool { return Matches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
 		{"NotMatches", func(t Testing) bool { return NotMatches(t, "a", "a", "ctx: ") }, "ctx: Should not match regexp\n  actual: a\n pattern: a"},
 		{"NotMatches invalid", func(t Testing) bool { return NotMatches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
-		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
+		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
+		{"EqualJSON trailing", func(t Testing) bool { return EqualJSON(t, "1 x", "1", "ctx: ") }, "ctx: Should be valid JSON\n  actual: 1 x\n     err: invalid character 'x' after top-level value"},
 		{"EqualJSON invalid actual", func(t Testing) bool { return EqualJSON(t, "x", "2", "ctx: ") }, "ctx: Should be valid JSON\n  actual: x\n     err: "},
 		{"EqualJSON invalid expected", func(t Testing) bool { return EqualJSON(t, "1", "x", "ctx: ") }, "ctx: Should be valid JSON\nexpected: x\n     err: "},
-		{"JSON", func(t Testing) bool { return JSON(t, 1, "2", "ctx: ") }, "ctx: Should be equal:\n  actual: 1\nexpected: 2"},
-		{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should not be error\n"},
-		{"Panics", func(t Testing) bool { return Panics(t, func() {}, nil, "ctx: ") }, "ctx: Should panic"},
-		{"Panics value", func(t Testing) bool { return Panics(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
-		{"Panics error", func(t Testing) bool { return Panics(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with error\n  actual: \"a\"\nexpected: ["},
-		{"Panics wrong error", func(t Testing) bool { return Panics(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should be same error\n"},
+		{"JSON", func(t Testing) bool { return JSON(t, 1, "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
+		{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should be marshalable\n  actual: [0x"},
+		{"Panics", func(t Testing) bool { return Panics(t, func() {}, "ctx: ") }, "ctx: Should panic"},
+		{"PanicsWith", func(t Testing) bool { return PanicsWith(t, func() {}, "b", "ctx: ") }, "ctx: Should panic\nexpected: \"b\""},
+		{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
+		{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with error\n  actual: \"a\"\nexpected: ["},
+		{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should match error\n"},
 		{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n  value: \"a\""},
 	}
 
@@ -384,6 +455,14 @@ type testErr struct{}
 
 func (t testErr) Error() string {
 	return "Custom error"
+}
+
+type testPtrErr struct {
+	msg string
+}
+
+func (t *testPtrErr) Error() string {
+	return t.msg
 }
 
 type testSliceErr []string
@@ -477,39 +556,12 @@ func testSameInvalid[T Reference](t *testing.T, actual, expected T) {
 	}
 }
 
-func testGreater[T Numeric](t *testing.T, actual, expected T, result bool) {
+func testOrder[T Numeric](t *testing.T, assertion func(Testing, T, T, ...string) bool, name string, actual, expected T, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Greater(tt, actual, expected) != result {
-		t.Errorf("Greater(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
-	}
-}
-
-func testGreaterOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if GreaterOrEqual(tt, actual, expected) != result {
-		t.Errorf("GreaterOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
-	}
-}
-
-func testLess[T Numeric](t *testing.T, actual, expected T, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if Less(tt, actual, expected) != result {
-		t.Errorf("Less(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
-	}
-}
-
-func testLessOrEqual[T Numeric](t *testing.T, actual, expected T, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if LessOrEqual(tt, actual, expected) != result {
-		t.Errorf("LessOrEqual(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	if assertion(tt, actual, expected) != result {
+		t.Errorf("%s(%#v,%#v) should return %#v: %s", name, actual, expected, result, tt.LastError)
 	}
 }
 
@@ -536,7 +588,7 @@ func testEmpty[T any](t *testing.T, object T, result bool) {
 	}
 }
 
-func testContains[S Iterable[E], E Comparable](t *testing.T, object S, element E, result bool) {
+func testContains[S Iterable, E Comparable](t *testing.T, object S, element E, result bool) {
 	t.Helper()
 
 	tt := newLogger()
@@ -604,12 +656,44 @@ func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 	}
 }
 
-func testPanics(t *testing.T, fn func(), expected any, result bool) {
+func testPanics(t *testing.T, fn func(), result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Panics(tt, fn, expected) != result {
-		t.Errorf("Panics(%#v) should return %#v: %s", expected, result, tt.LastError)
+	if Panics(tt, fn) != result {
+		t.Errorf("Panics() should return %#v: %s", result, tt.LastError)
+	}
+}
+
+func testPanicsWith(t *testing.T, fn func(), expected any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if PanicsWith(tt, fn, expected) != result {
+		t.Errorf("PanicsWith(%#v) should return %#v: %s", expected, result, tt.LastError)
+	}
+}
+
+func testNil(t *testing.T, object any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if Nil(tt, object) != result {
+		t.Errorf("Nil(%#v) should return %#v: %s", object, result, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotNil(tt, object) != !result {
+		t.Errorf("NotNil(%#v) should return %#v: %s", object, !result, tt.LastError)
+	}
+}
+
+func testErrorAs(t *testing.T, err error, target any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if ErrorAs(tt, err, target) != result {
+		t.Errorf("ErrorAs(%#v,%T) should return %#v: %s", err, target, result, tt.LastError)
 	}
 }
 
@@ -631,7 +715,7 @@ func testJSON(t *testing.T, actual any, expected string, result bool) {
 	}
 }
 
-func testContainsInvalid[S Iterable[E], E Comparable](t *testing.T, object S, element E) {
+func testContainsInvalid[S Iterable, E Comparable](t *testing.T, object S, element E) {
 	t.Helper()
 
 	tt := newLogger()

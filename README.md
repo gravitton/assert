@@ -36,38 +36,41 @@ func TestFoo(t *testing.T) {
 
 ## Assertions
 
-| Function | Description |
-|---|---|
-| `True(t, condition)` | condition is true |
-| `False(t, condition)` | condition is false |
-| `Same(t, actual, expected)` | references (pointers, slices, maps, channels) have the same type and address |
-| `NotSame(t, actual, expected)` | references have a different type or address |
-| `Equal(t, actual, expected)` | values are equal (deep) |
-| `NotEqual(t, actual, expected)` | values are not equal |
-| `EqualDelta(t, actual, expected, delta)` | numeric values differ by at most delta |
-| `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta |
-| `Greater(t, actual, expected)` | actual > expected (fails on NaN) |
-| `GreaterOrEqual(t, actual, expected)` | actual >= expected |
-| `Less(t, actual, expected)` | actual < expected (fails on NaN) |
-| `LessOrEqual(t, actual, expected)` | actual <= expected |
-| `Length(t, object, n)` | string/array/slice/map/channel has length n |
-| `Empty(t, object)` | string/array/slice/map/channel has zero length |
-| `NotEmpty(t, object)` | string/array/slice/map/channel has non-zero length |
-| `Contains(t, object, element)` | string contains substring, or array/slice/map values contain element |
-| `NotContains(t, object, element)` | string does not contain substring, or array/slice/map values do not contain element |
-| `Error(t, err)` | error is not nil |
-| `NoError(t, err)` | error is nil |
-| `ErrorIs(t, err, target)` | error unwraps to target |
-| `NotErrorIs(t, err, target)` | error does not unwrap to target |
-| `Matches(t, actual, pattern)` | string matches regular expression |
-| `NotMatches(t, actual, pattern)` | string does not match regular expression |
-| `Panics(t, fn, nil)` | fn panics (value not checked) |
-| `Panics(t, fn, expected)` | fn panics with value equal to expected; if expected is an error, uses errors.Is |
-| `NotPanics(t, fn)` | fn does not panic |
-| `EqualJSON(t, actual, expected)` | JSON strings are semantically equal |
-| `JSON(t, object, expected)` | object marshals to expected JSON string |
-| `Fail(t, message)` | always fails with message |
-| `Failf(t, format, args...)` | always fails with formatted message |
+| Function                                    | Description                                                                                                            |
+|---------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `True(t, condition)`                        | condition is true                                                                                                      |
+| `False(t, condition)`                       | condition is false                                                                                                     |
+| `Nil(t, object)`                            | object is nil, including a typed nil pointer, slice, map, channel or function                                          |
+| `NotNil(t, object)`                         | object is not nil                                                                                                      |
+| `Same(t, actual, expected)`                 | references (pointers, slices, maps, channels) have the same type and address; slices also the same length and capacity |
+| `NotSame(t, actual, expected)`              | references have a different type or address                                                                            |
+| `Equal(t, actual, expected)`                | values are equal (deep)                                                                                                |
+| `NotEqual(t, actual, expected)`             | values are not equal                                                                                                   |
+| `EqualDelta(t, actual, expected, delta)`    | numeric values differ by at most delta (panics on negative or NaN delta)                                               |
+| `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta                                                                               |
+| `Greater(t, actual, expected)`              | actual > expected (fails on NaN)                                                                                       |
+| `GreaterOrEqual(t, actual, expected)`       | actual >= expected                                                                                                     |
+| `Less(t, actual, expected)`                 | actual < expected (fails on NaN)                                                                                       |
+| `LessOrEqual(t, actual, expected)`          | actual <= expected                                                                                                     |
+| `Length(t, object, n)`                      | string/array/slice/map/channel has length n                                                                            |
+| `Empty(t, object)`                          | string/array/slice/map/channel has zero length                                                                         |
+| `NotEmpty(t, object)`                       | string/array/slice/map/channel has non-zero length                                                                     |
+| `Contains(t, object, element)`              | string contains substring, or array/slice/map values contain element                                                   |
+| `NotContains(t, object, element)`           | string does not contain substring, or array/slice/map values do not contain element                                    |
+| `Error(t, err)`                             | error is not nil                                                                                                       |
+| `NoError(t, err)`                           | error is nil                                                                                                           |
+| `ErrorIs(t, err, target)`                   | error matches target with `errors.Is`                                                                                  |
+| `NotErrorIs(t, err, target)`                | error does not match target with `errors.Is`                                                                           |
+| `ErrorAs(t, err, target)`                   | error is assignable to target with `errors.As`                                                                         |
+| `Matches(t, actual, pattern)`               | string matches regular expression                                                                                      |
+| `NotMatches(t, actual, pattern)`            | string does not match regular expression                                                                               |
+| `Panics(t, fn)`                             | fn panics                                                                                                              |
+| `PanicsWith(t, fn, expected)`               | fn panics with value deeply equal to expected; if expected is an error, uses `errors.Is`                               |
+| `NotPanics(t, fn)`                          | fn does not panic                                                                                                      |
+| `EqualJSON(t, actual, expected)`            | JSON strings are semantically equal; numbers compare exactly                                                           |
+| `JSON(t, object, expected)`                 | object marshals to expected JSON string                                                                                |
+| `Fail(t, message)`                          | always fails with message                                                                                              |
+| `Failf(t, format, args...)`                 | always fails with formatted message                                                                                    |
 
 All assertions return `bool`: `true` on success, `false` on failure.
 
@@ -81,10 +84,10 @@ The return value and optional message prefix make it straightforward to compose 
 ```go
 func TestRect(t *testing.T) {
 	assertRect(t, image.Rect(1, 2, 3, 4), image.Rect(1, 3, 2, 4))
-	// test.go:4: Min.Y: Should be equal:
+	// test.go:4: Min.Y: Should be equal
 	//       actual: 2
 	//     expected: 3
-	// test.go:4: Max.X: Should be equal:
+	// test.go:4: Max.X: Should be equal
 	//       actual: 3
 	//     expected: 2
 }
