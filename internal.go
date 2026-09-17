@@ -61,7 +61,7 @@ func isFloat[T Numeric]() bool {
 	return T(1)/T(2) != 0
 }
 
-func compare[T Numeric](actual, expected T) (int, bool) {
+func compare[T Ordered](actual, expected T) (int, bool) {
 	if actual != actual || expected != expected {
 		return 0, false
 	}
@@ -226,18 +226,18 @@ func isNil(object any) bool {
 	value := reflect.ValueOf(object)
 
 	switch value.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.UnsafePointer:
 		return value.IsNil()
 	default:
 		return false
 	}
 }
 
-func message(message []string) string {
-	return strings.Join(message, "")
+func join(messages []string) string {
+	return strings.Join(messages, "")
 }
 
-func print(object any) string {
+func format(object any) string {
 	valueOf := reflect.ValueOf(object)
 
 	switch valueOf.Kind() {

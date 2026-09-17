@@ -36,7 +36,7 @@
 //   - [Nil] / [NotNil] — value is nil / non-nil, including typed nil references
 //   - [Equal] / [NotEqual] — deep value equality
 //   - [EqualDelta] / [NotEqualDelta] — numeric equality within a tolerance
-//   - [Greater] / [GreaterOrEqual] / [Less] / [LessOrEqual] — numeric ordering
+//   - [Greater] / [GreaterOrEqual] / [Less] / [LessOrEqual] — ordering of numbers and strings
 //   - [Same] / [NotSame] — reference identity (same type and address)
 //   - [Length] / [Empty] / [NotEmpty] — length of a string, array, slice, map, or channel
 //   - [Contains] / [NotContains] — membership in a string, array, slice, or map values

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func TestFail(t *testing.T) {
@@ -107,6 +108,8 @@ func TestNil(t *testing.T) {
 	testNil(t, c, true)
 	testNil(t, f, true)
 	testNil(t, e, true)
+	testNil(t, unsafe.Pointer(nil), true)
+	testNil(t, unsafe.Pointer(ptr(1)), false)
 	testNil(t, ptr(1), false)
 	testNil(t, []int{}, false)
 	testNil(t, map[string]int{}, false)
@@ -161,6 +164,8 @@ func TestGreater(t *testing.T) {
 	testOrder[uint32](t, Greater, "Greater", 5, 3, true)
 	testOrder(t, Greater, "Greater", math.NaN(), 1.0, false)
 	testOrder(t, Greater, "Greater", 1.0, math.NaN(), false)
+	testOrder(t, Greater, "Greater", "b", "a", true)
+	testOrder(t, Greater, "Greater", "a", "b", false)
 }
 
 func TestGreaterOrEqual(t *testing.T) {
@@ -182,6 +187,8 @@ func TestLess(t *testing.T) {
 	testOrder[float64](t, Less, "Less", 1.0, 1.0, false)
 	testOrder[uint32](t, Less, "Less", 3, 5, true)
 	testOrder(t, Less, "Less", math.NaN(), 1.0, false)
+	testOrder(t, Less, "Less", "a", "b", true)
+	testOrder[testType](t, Less, "Less", "b", "a", false)
 }
 
 func TestLessOrEqual(t *testing.T) {
@@ -398,16 +405,16 @@ func TestMessages(t *testing.T) {
 		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\nexpected: 2"},
 		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\nexpected: 1"},
 		{"LessOrEqual", func(t Testing) bool { return LessOrEqual(t, 2, 1, "ctx: ") }, "ctx: Should be less or equal\n  actual: 2\nexpected: 1"},
-		{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  object: []int{1}\n  actual: 1\nexpected: 2"},
+		{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  object: ["},
 		{"Length invalid", func(t Testing) bool { return Length(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  object: []int{1}"},
+		{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  object: ["},
 		{"Empty invalid", func(t Testing) bool { return Empty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  object: []int{}"},
+		{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  object: ["},
 		{"NotEmpty invalid", func(t Testing) bool { return NotEmpty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  object: []int{1}\n element: 2"},
+		{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  object: ["},
 		{"Contains invalid", func(t Testing) bool { return Contains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
-		{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  object: []int{1}\n element: \"a\""},
-		{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  object: []int{1}\n element: 1"},
+		{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  object: ["},
+		{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  object: ["},
 		{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
 		{"Error", func(t Testing) bool { return Error(t, nil, "ctx: ") }, "ctx: Should be error"},
 		{"NoError", func(t Testing) bool { return NoError(t, err, "ctx: ") }, "ctx: Should not be error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}"},
@@ -428,7 +435,7 @@ func TestMessages(t *testing.T) {
 		{"PanicsWith", func(t Testing) bool { return PanicsWith(t, func() {}, "b", "ctx: ") }, "ctx: Should panic\nexpected: \"b\""},
 		{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
 		{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with error\n  actual: \"a\"\nexpected: ["},
-		{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should match error\n"},
+		{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should panic with error\n  actual: ["},
 		{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n  value: \"a\""},
 	}
 
@@ -558,7 +565,7 @@ func testSameInvalid[T Reference](t *testing.T, actual, expected T) {
 	}
 }
 
-func testOrder[T Numeric](t *testing.T, assertion func(Testing, T, T, ...string) bool, name string, actual, expected T, result bool) {
+func testOrder[T Ordered](t *testing.T, assertion func(Testing, T, T, ...string) bool, name string, actual, expected T, result bool) {
 	t.Helper()
 
 	tt := newLogger()

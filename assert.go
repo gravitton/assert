@@ -35,7 +35,7 @@ func True(t Testing, condition bool, messages ...string) bool {
 	t.Helper()
 
 	if !condition {
-		return Failf(t, "%sShould be true", message(messages))
+		return Failf(t, "%sShould be true", join(messages))
 	}
 
 	return true
@@ -46,7 +46,7 @@ func False(t Testing, condition bool, messages ...string) bool {
 	t.Helper()
 
 	if condition {
-		return Failf(t, "%sShould be false", message(messages))
+		return Failf(t, "%sShould be false", join(messages))
 	}
 
 	return true
@@ -54,12 +54,12 @@ func False(t Testing, condition bool, messages ...string) bool {
 
 // Nil asserts that the specified object is nil.
 //
-// A typed nil pointer, slice, map, channel or function is treated as nil.
+// A typed nil pointer, slice, map, channel, function or unsafe.Pointer is treated as nil.
 func Nil(t Testing, object any, messages ...string) bool {
 	t.Helper()
 
 	if !isNil(object) {
-		return Failf(t, "%sShould be nil\n  actual: %s", message(messages), print(object))
+		return Failf(t, "%sShould be nil\n  actual: %s", join(messages), format(object))
 	}
 
 	return true
@@ -67,12 +67,12 @@ func Nil(t Testing, object any, messages ...string) bool {
 
 // NotNil asserts that the specified object is NOT nil.
 //
-// A typed nil pointer, slice, map, channel or function is treated as nil.
+// A typed nil pointer, slice, map, channel, function or unsafe.Pointer is treated as nil.
 func NotNil(t Testing, object any, messages ...string) bool {
 	t.Helper()
 
 	if isNil(object) {
-		return Failf(t, "%sShould not be nil\n  actual: %s", message(messages), print(object))
+		return Failf(t, "%sShould not be nil\n  actual: %s", join(messages), format(object))
 	}
 
 	return true
@@ -90,9 +90,9 @@ func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if identical, why := same(actual, expected); why != valid {
-		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", message(messages), why, print(actual), print(expected))
+		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", join(messages), why, format(actual), format(expected))
 	} else if !identical {
-		return Failf(t, "%sShould be same\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be same\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -107,9 +107,9 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 	t.Helper()
 
 	if identical, why := same(actual, expected); why != valid {
-		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", message(messages), why, print(actual), print(expected))
+		return Failf(t, "%s%s\n  actual: %s\nexpected: %s", join(messages), why, format(actual), format(expected))
 	} else if identical {
-		return Failf(t, "%sShould not be same\n  actual: %s", message(messages), print(actual))
+		return Failf(t, "%sShould not be same\n  actual: %s", join(messages), format(actual))
 	}
 
 	return true
@@ -123,7 +123,7 @@ func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool
 	t.Helper()
 
 	if !equal(actual, expected) {
-		return Failf(t, "%sShould be equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be equal\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -137,7 +137,7 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 	t.Helper()
 
 	if equal(actual, expected) {
-		return Failf(t, "%sShould not be equal\n  actual: %s", message(messages), print(actual))
+		return Failf(t, "%sShould not be equal\n  actual: %s", join(messages), format(actual))
 	}
 
 	return true
@@ -150,7 +150,7 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	t.Helper()
 
 	if !equalDelta(actual, expected, delta) {
-		return Failf(t, "%sShould be equal in delta\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be equal in delta\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -163,7 +163,7 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 	t.Helper()
 
 	if equalDelta(actual, expected, delta) {
-		return Failf(t, "%sShould not be equal in delta\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould not be equal in delta\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -172,11 +172,11 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 // Greater asserts that actual is greater than expected.
 //
 // Fails when either value is NaN.
-func Greater[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+func Greater[T Ordered](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if order, ok := compare(actual, expected); !ok || order <= 0 {
-		return Failf(t, "%sShould be greater\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be greater\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -185,11 +185,11 @@ func Greater[T Numeric](t Testing, actual, expected T, messages ...string) bool 
 // GreaterOrEqual asserts that actual is greater than or equal to expected.
 //
 // Fails when either value is NaN.
-func GreaterOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+func GreaterOrEqual[T Ordered](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if order, ok := compare(actual, expected); !ok || order < 0 {
-		return Failf(t, "%sShould be greater or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be greater or equal\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -198,11 +198,11 @@ func GreaterOrEqual[T Numeric](t Testing, actual, expected T, messages ...string
 // Less asserts that actual is less than expected.
 //
 // Fails when either value is NaN.
-func Less[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+func Less[T Ordered](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if order, ok := compare(actual, expected); !ok || order >= 0 {
-		return Failf(t, "%sShould be less\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be less\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -211,11 +211,11 @@ func Less[T Numeric](t Testing, actual, expected T, messages ...string) bool {
 // LessOrEqual asserts that actual is less than or equal to expected.
 //
 // Fails when either value is NaN.
-func LessOrEqual[T Numeric](t Testing, actual, expected T, messages ...string) bool {
+func LessOrEqual[T Ordered](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if order, ok := compare(actual, expected); !ok || order > 0 {
-		return Failf(t, "%sShould be less or equal\n  actual: %s\nexpected: %s", message(messages), print(actual), print(expected))
+		return Failf(t, "%sShould be less or equal\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
 	return true
@@ -228,9 +228,9 @@ func Length[S Iterable](t Testing, object S, expected int, messages ...string) b
 	t.Helper()
 
 	if actual, why := length(object); why != valid {
-		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+		return Failf(t, "%s%s\n  object: %s", join(messages), why, format(object))
 	} else if actual != expected {
-		return Failf(t, "%sShould have length\n  object: %#v\n  actual: %d\nexpected: %d", message(messages), object, actual, expected)
+		return Failf(t, "%sShould have length\n  object: %s\n  actual: %d\nexpected: %d", join(messages), format(object), actual, expected)
 	}
 
 	return true
@@ -243,9 +243,9 @@ func Empty[S Iterable](t Testing, object S, messages ...string) bool {
 	t.Helper()
 
 	if actual, why := length(object); why != valid {
-		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+		return Failf(t, "%s%s\n  object: %s", join(messages), why, format(object))
 	} else if actual != 0 {
-		return Failf(t, "%sShould be empty\n  object: %#v", message(messages), object)
+		return Failf(t, "%sShould be empty\n  object: %s", join(messages), format(object))
 	}
 
 	return true
@@ -258,9 +258,9 @@ func NotEmpty[S Iterable](t Testing, object S, messages ...string) bool {
 	t.Helper()
 
 	if actual, why := length(object); why != valid {
-		return Failf(t, "%s%s\n  object: %#v", message(messages), why, object)
+		return Failf(t, "%s%s\n  object: %s", join(messages), why, format(object))
 	} else if actual == 0 {
-		return Failf(t, "%sShould not be empty\n  object: %#v", message(messages), object)
+		return Failf(t, "%sShould not be empty\n  object: %s", join(messages), format(object))
 	}
 
 	return true
@@ -273,9 +273,9 @@ func Contains[S Iterable, E Comparable](t Testing, object S, element E, messages
 	t.Helper()
 
 	if found, why := contains(object, element); why != valid {
-		return Failf(t, "%s%s\n  object: %#v\n element: %#v", message(messages), why, object, element)
+		return Failf(t, "%s%s\n  object: %s\n element: %s", join(messages), why, format(object), format(element))
 	} else if !found {
-		return Failf(t, "%sShould contain element\n  object: %#v\n element: %#v", message(messages), object, element)
+		return Failf(t, "%sShould contain element\n  object: %s\n element: %s", join(messages), format(object), format(element))
 	}
 
 	return true
@@ -288,9 +288,9 @@ func NotContains[S Iterable, E Comparable](t Testing, object S, element E, messa
 	t.Helper()
 
 	if found, why := contains(object, element); why != valid {
-		return Failf(t, "%s%s\n  object: %#v\n element: %#v", message(messages), why, object, element)
+		return Failf(t, "%s%s\n  object: %s\n element: %s", join(messages), why, format(object), format(element))
 	} else if found {
-		return Failf(t, "%sShould not contain element\n  object: %#v\n element: %#v", message(messages), object, element)
+		return Failf(t, "%sShould not contain element\n  object: %s\n element: %s", join(messages), format(object), format(element))
 	}
 
 	return true
@@ -303,7 +303,7 @@ func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if isNil(err) {
-		return Failf(t, "%sShould be error", message(messages))
+		return Failf(t, "%sShould be error", join(messages))
 	}
 
 	return true
@@ -316,7 +316,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if !isNil(err) {
-		return Failf(t, "%sShould not be error\n     msg: %[2]v\n   error: %#[2]v", message(messages), err)
+		return Failf(t, "%sShould not be error\n     msg: %[2]v\n   error: %#[2]v", join(messages), err)
 	}
 
 	return true
@@ -327,7 +327,7 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if !errors.Is(err, target) {
-		return Failf(t, "%sShould match error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", message(messages), err, target)
+		return Failf(t, "%sShould match error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", join(messages), err, target)
 	}
 
 	return true
@@ -338,7 +338,7 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if errors.Is(err, target) {
-		return Failf(t, "%sShould not match error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", message(messages), err, target)
+		return Failf(t, "%sShould not match error\n     msg: %[2]v\n   error: %#[2]v\n  target: %#v", join(messages), err, target)
 	}
 
 	return true
@@ -352,7 +352,7 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 	t.Helper()
 
 	if !errors.As(err, target) {
-		return Failf(t, "%sShould be assignable to target\n     msg: %[2]v\n   error: %#[2]v\n  target: %T", message(messages), err, target)
+		return Failf(t, "%sShould be assignable to target\n     msg: %[2]v\n   error: %#[2]v\n  target: %T", join(messages), err, target)
 	}
 
 	return true
@@ -364,11 +364,11 @@ func Matches(t Testing, actual, pattern string, messages ...string) bool {
 
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", message(messages), pattern, err)
+		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", join(messages), pattern, err)
 	}
 
 	if !re.MatchString(actual) {
-		return Failf(t, "%sShould match regexp\n  actual: %s\n pattern: %s", message(messages), actual, pattern)
+		return Failf(t, "%sShould match regexp\n  actual: %s\n pattern: %s", join(messages), actual, pattern)
 	}
 
 	return true
@@ -380,11 +380,11 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", message(messages), pattern, err)
+		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", join(messages), pattern, err)
 	}
 
 	if re.MatchString(actual) {
-		return Failf(t, "%sShould not match regexp\n  actual: %s\n pattern: %s", message(messages), actual, pattern)
+		return Failf(t, "%sShould not match regexp\n  actual: %s\n pattern: %s", join(messages), actual, pattern)
 	}
 
 	return true
@@ -398,16 +398,16 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 
 	actualJSON, err := decodeJSON(actual)
 	if err != nil {
-		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", message(messages), actual, err)
+		return Failf(t, "%sShould be valid JSON\n  actual: %s\n     err: %v", join(messages), actual, err)
 	}
 
 	expectedJSON, err := decodeJSON(expected)
 	if err != nil {
-		return Failf(t, "%sShould be valid JSON\nexpected: %s\n     err: %v", message(messages), expected, err)
+		return Failf(t, "%sShould be valid JSON\nexpected: %s\n     err: %v", join(messages), expected, err)
 	}
 
 	if !equal(actualJSON, expectedJSON) {
-		return Failf(t, "%sShould be equal JSON\n  actual: %s\nexpected: %s", message(messages), actual, expected)
+		return Failf(t, "%sShould be equal JSON\n  actual: %s\nexpected: %s", join(messages), actual, expected)
 	}
 
 	return true
@@ -419,7 +419,7 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 
 	s, err := json.Marshal(actual)
 	if err != nil {
-		return Failf(t, "%sShould be marshalable\n  actual: %s\n     err: %v", message(messages), print(actual), err)
+		return Failf(t, "%sShould be marshalable\n  actual: %s\n     err: %v", join(messages), format(actual), err)
 	}
 
 	return EqualJSON(t, string(s), expected, messages...)
@@ -430,7 +430,7 @@ func Panics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 
 	if panicked, _ := panics(fn); !panicked {
-		return Failf(t, "%sShould panic", message(messages))
+		return Failf(t, "%sShould panic", join(messages))
 	}
 
 	return true
@@ -445,19 +445,19 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 
 	panicked, value := panics(fn)
 	if !panicked {
-		return Failf(t, "%sShould panic\nexpected: %s", message(messages), print(expected))
+		return Failf(t, "%sShould panic\nexpected: %s", join(messages), format(expected))
 	}
 
 	if target, ok := expected.(error); ok {
-		if err, ok := value.(error); ok {
-			return ErrorIs(t, err, target, messages...)
+		if err, ok := value.(error); !ok || !errors.Is(err, target) {
+			return Failf(t, "%sShould panic with error\n  actual: %s\nexpected: %s", join(messages), format(value), format(expected))
 		}
 
-		return Failf(t, "%sShould panic with error\n  actual: %s\nexpected: %s", message(messages), print(value), print(expected))
+		return true
 	}
 
 	if !equal(value, expected) {
-		return Failf(t, "%sShould panic with value\n  actual: %s\nexpected: %s", message(messages), print(value), print(expected))
+		return Failf(t, "%sShould panic with value\n  actual: %s\nexpected: %s", join(messages), format(value), format(expected))
 	}
 
 	return true
@@ -468,7 +468,7 @@ func NotPanics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 
 	if panicked, value := panics(fn); panicked {
-		return Failf(t, "%sShould not panic\n  value: %s", message(messages), print(value))
+		return Failf(t, "%sShould not panic\n  value: %s", join(messages), format(value))
 	}
 
 	return true

@@ -1,5 +1,7 @@
 package assert
 
+import "cmp"
+
 // Comparable documents that a value is compared with reflect.DeepEqual.
 // It does not restrict the type set; every type satisfies it.
 type Comparable interface {
@@ -13,6 +15,11 @@ type Comparable interface {
 // identity in Go, so [Same] and [NotSame] reject them even though [Nil] accepts them.
 type Reference interface {
 	any
+}
+
+// Ordered is the set of types that support the < operator: integers, floats and strings.
+type Ordered interface {
+	cmp.Ordered
 }
 
 // Numeric is the set of integer and floating-point types.

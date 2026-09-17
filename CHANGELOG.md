@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `Nil` and `NotNil` assert methods; typed nil pointers, slices, maps, channels and functions count as nil
 - Added `ErrorAs` assert method, mirroring `errors.As`
 - Added `PanicsWith` assert method, taking over the expected-value check from `Panics`
+- Added `Ordered` constraint; `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` now accept any `cmp.Ordered` type, strings included
+- `Nil` and `NotNil` treat a nil `unsafe.Pointer` as nil
 
 ### Changed
 - **Breaking:** `Panics` no longer takes an expected value; use `PanicsWith` for that
@@ -21,6 +23,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` fail when either value is NaN
 - `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`, and panic with `delta must be non-negative` instead of `delta must be positive`
 - Documented that `Length`, `Empty` and `NotEmpty` measure string length in bytes, and that `Reference` excludes functions
+- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` print the object and element the same way as `Equal`, with the address of references
+- `PanicsWith` reports a non-matching panic error as `Should panic with error` with both values, instead of delegating to `ErrorIs`
 
 ### Fixed
 - `Same` reported a slice and its resliced prefix (e.g. `s` and `s[:0]`) as the same; slices now also compare length and capacity
