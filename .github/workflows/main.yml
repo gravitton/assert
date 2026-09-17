@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go ${{ matrix.go }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
 
@@ -45,5 +45,5 @@ jobs:
       - name: Upload coverage
         uses: coverallsapp/github-action@v2
         with:
-          path-to-lcov: coverage.out
-          parallel: false
+          file: coverage.out
+          format: golang

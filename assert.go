@@ -3,7 +3,6 @@ package assert
 import (
 	"encoding/json"
 	"errors"
-	"regexp"
 )
 
 // Testing is an interface wrapper around *testing.T
@@ -118,7 +117,8 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 // Equal asserts that two objects are equal.
 //
 // Equality is determined with reflect.DeepEqual: pointers are compared by the
-// values they reference, and two non-nil functions are never equal.
+// values they reference, and two non-nil functions are never equal. A typed nil
+// stored in an interface is not equal to an untyped nil; use [Nil] for that.
 func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
@@ -145,11 +145,13 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 
 // EqualDelta asserts that two numeric values differ by at most delta.
 //
-// Panics if delta is negative or NaN. NaN is only equal to NaN.
+// Fails when delta is negative or NaN. NaN is only equal to NaN.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
-	if !equalDelta(actual, expected, delta) {
+	if within, why := equalDelta(actual, expected, delta); why != valid {
+		return Failf(t, "%s%s\n   delta: %s", join(messages), why, format(delta))
+	} else if !within {
 		return Failf(t, "%sShould be equal in delta\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
@@ -158,11 +160,13 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 
 // NotEqualDelta asserts that two numeric values differ by more than delta.
 //
-// Panics if delta is negative or NaN. NaN is only equal to NaN.
+// Fails when delta is negative or NaN. NaN is only equal to NaN.
 func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
-	if equalDelta(actual, expected, delta) {
+	if within, why := equalDelta(actual, expected, delta); why != valid {
+		return Failf(t, "%s%s\n   delta: %s", join(messages), why, format(delta))
+	} else if within {
 		return Failf(t, "%sShould not be equal in delta\n  actual: %s\nexpected: %s", join(messages), format(actual), format(expected))
 	}
 
@@ -362,12 +366,9 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 func Matches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
-	re, err := regexp.Compile(pattern)
-	if err != nil {
+	if matched, err := matches(actual, pattern); err != nil {
 		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", join(messages), pattern, err)
-	}
-
-	if !re.MatchString(actual) {
+	} else if !matched {
 		return Failf(t, "%sShould match regexp\n  actual: %s\n pattern: %s", join(messages), actual, pattern)
 	}
 
@@ -378,12 +379,9 @@ func Matches(t Testing, actual, pattern string, messages ...string) bool {
 func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
-	re, err := regexp.Compile(pattern)
-	if err != nil {
+	if matched, err := matches(actual, pattern); err != nil {
 		return Failf(t, "%sShould be valid regexp\n pattern: %s\n     err: %v", join(messages), pattern, err)
-	}
-
-	if re.MatchString(actual) {
+	} else if matched {
 		return Failf(t, "%sShould not match regexp\n  actual: %s\n pattern: %s", join(messages), actual, pattern)
 	}
 
@@ -426,6 +424,8 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 }
 
 // Panics asserts that fn panics.
+//
+// A panic(nil) is recognised regardless of the GODEBUG panicnil setting.
 func Panics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 
@@ -438,8 +438,9 @@ func Panics(t Testing, fn func(), messages ...string) bool {
 
 // PanicsWith asserts that fn panics with the expected value.
 //
-// When expected is an error, the panic value must be an error matching it
-// according to errors.Is. Otherwise, the panic value must be deeply equal to expected.
+// The panic value must be deeply equal to expected. When expected is an error,
+// a panic value matching it according to errors.Is is accepted as well.
+// A panic(nil) is reported as a nil value regardless of the GODEBUG panicnil setting.
 func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	t.Helper()
 
@@ -448,15 +449,7 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 		return Failf(t, "%sShould panic\nexpected: %s", join(messages), format(expected))
 	}
 
-	if target, ok := expected.(error); ok {
-		if err, ok := value.(error); !ok || !errors.Is(err, target) {
-			return Failf(t, "%sShould panic with error\n  actual: %s\nexpected: %s", join(messages), format(value), format(expected))
-		}
-
-		return true
-	}
-
-	if !equal(value, expected) {
+	if !panicsWith(value, expected) {
 		return Failf(t, "%sShould panic with value\n  actual: %s\nexpected: %s", join(messages), format(value), format(expected))
 	}
 
@@ -464,6 +457,8 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 }
 
 // NotPanics asserts that fn does NOT panic.
+//
+// A panic(nil) is recognised regardless of the GODEBUG panicnil setting.
 func NotPanics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 

@@ -2,10 +2,14 @@ package assert
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
+	"regexp"
+	"runtime"
 	"strings"
+	"unicode/utf8"
 )
 
 type reason string
@@ -15,7 +19,10 @@ const (
 	notReference reason = "Should be reference"
 	notIterable  reason = "Should be iterable"
 	elementType  reason = "Should have element of same type"
+	invalidDelta reason = "Should have non-negative delta"
 )
+
+const formatLimit = 1024
 
 type jsonNumber string
 
@@ -23,16 +30,16 @@ func equal[T Comparable](actual, expected T) bool {
 	return reflect.DeepEqual(actual, expected)
 }
 
-func equalDelta[T Numeric](actual, expected, delta T) bool {
+func equalDelta[T Numeric](actual, expected, delta T) (bool, reason) {
 	if delta < 0 || delta != delta {
-		panic("delta must be non-negative")
+		return false, invalidDelta
 	}
 
 	if isFloat[T]() {
-		return equalDeltaFloat(float64(actual), float64(expected), float64(delta))
+		return equalDeltaFloat(float64(actual), float64(expected), float64(delta)), valid
 	}
 
-	return integerDistance(actual, expected) <= uint64(delta)
+	return integerDistance(actual, expected) <= uint64(delta), valid
 }
 
 func equalDeltaFloat(actual, expected, delta float64) bool {
@@ -58,7 +65,12 @@ func integerDistance[T Numeric](a, b T) uint64 {
 }
 
 func isFloat[T Numeric]() bool {
-	return T(1)/T(2) != 0
+	switch reflect.TypeFor[T]().Kind() {
+	case reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
 }
 
 func compare[T Ordered](actual, expected T) (int, bool) {
@@ -162,6 +174,15 @@ func assignable(from, to reflect.Type) bool {
 	return from.AssignableTo(to)
 }
 
+func matches(actual, pattern string) (bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, err
+	}
+
+	return re.MatchString(actual), nil
+}
+
 func decodeJSON(s string) (any, error) {
 	decoder := json.NewDecoder(strings.NewReader(s))
 	decoder.UseNumber()
@@ -209,13 +230,34 @@ func normalizeJSONNumber(number json.Number) jsonNumber {
 
 func panics(fn func()) (panicked bool, value any) {
 	defer func() {
-		value = recover()
+		if panicked {
+			value = normalizePanic(recover())
+		}
 	}()
 
 	panicked = true
 	fn()
+	panicked = false
 
-	return false, nil
+	return panicked, nil
+}
+
+func normalizePanic(value any) any {
+	if _, ok := value.(*runtime.PanicNilError); ok {
+		return nil
+	}
+
+	return value
+}
+
+func panicsWith(value, expected any) bool {
+	if target, ok := expected.(error); ok {
+		if err, ok := value.(error); ok && errors.Is(err, target) {
+			return true
+		}
+	}
+
+	return equal(value, expected)
 }
 
 func isNil(object any) bool {
@@ -243,13 +285,26 @@ func format(object any) string {
 	switch valueOf.Kind() {
 	case reflect.Pointer:
 		if valueOf.IsNil() {
-			return fmt.Sprintf("%#v", object)
+			return truncate(fmt.Sprintf("%#v", object))
 		}
 
-		return fmt.Sprintf("[%p] %#v", object, valueOf.Elem().Interface())
+		return truncate(fmt.Sprintf("[%p] %#v", object, valueOf.Elem().Interface()))
 	case reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
-		return fmt.Sprintf("[%[1]p] %#[1]v", object)
+		return truncate(fmt.Sprintf("[%[1]p] %#[1]v", object))
 	default:
-		return fmt.Sprintf("%#v", object)
+		return truncate(fmt.Sprintf("%#v", object))
 	}
+}
+
+func truncate(s string) string {
+	if len(s) <= formatLimit {
+		return s
+	}
+
+	end := formatLimit
+	for end > 0 && !utf8.RuneStart(s[end]) {
+		end--
+	}
+
+	return s[:end] + "…"
 }

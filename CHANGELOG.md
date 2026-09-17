@@ -21,16 +21,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Same` and `NotSame` require both type and address to match, report non-reference arguments as `Should be reference`, and no longer accept `unsafe.Pointer` or function values as references
 - `Contains` and `NotContains` report an element whose type does not fit the container as `Should have element of same type` instead of `Should be iterable`, including a non-string element on a string
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` fail when either value is NaN
-- `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`, and panic with `delta must be non-negative` instead of `delta must be positive`
+- `EqualDelta` and `NotEqualDelta` compare integer types exactly instead of through `float64`, fail with `Should have non-negative delta` instead of panicking on an invalid delta, and accept `uintptr`
 - Documented that `Length`, `Empty` and `NotEmpty` measure string length in bytes, and that `Reference` excludes functions
 - `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` print the object and element the same way as `Equal`, with the address of references
-- `PanicsWith` reports a non-matching panic error as `Should panic with error` with both values, instead of delegating to `ErrorIs`
+- `PanicsWith` reports a non-matching panic value as `Should panic with value` with both values, instead of delegating to `ErrorIs`
+- `PanicsWith`, `NotPanics` and `Panics` report a `panic(nil)` value as `nil` regardless of `GODEBUG=panicnil`
+- Values printed in failure messages are cut at 1024 bytes
+- Documented that `Equal` does not treat a typed nil as equal to an untyped nil, and that an untyped constant element defaults to `int` in `Contains`
 
 ### Fixed
 - `Same` reported a slice and its resliced prefix (e.g. `s` and `s[:0]`) as the same; slices now also compare length and capacity
 - `EqualJSON` and `JSON` conflated integers beyond 2^53 by decoding through `float64`; numbers are now compared exactly and the failure shows the original JSON strings
 - `EqualJSON` and `JSON` dropped the custom message prefix on the comparison failure
-- `EqualDelta` and `NotEqualDelta` silently never matched on a NaN delta; they now panic like they do on a negative delta
+- `EqualDelta` and `NotEqualDelta` silently never matched on a NaN delta; they now fail like they do on a negative delta
+- `PanicsWith` never matched a non-comparable error value, such as a struct holding a slice, and printed identical actual and expected values; it now falls back to deep equality when `errors.Is` does not match
 - `NotSame` and `NotContains` returned `true` after reporting a non-reference or non-iterable argument
 - `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` panicked on unsupported types instead of failing; `Contains` on a channel now fails as not iterable
 - `Equal`, `NotEqual`, `Same`, `NotSame` and `Panics` panicked when printing a nil pointer

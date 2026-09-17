@@ -109,41 +109,41 @@ Full reference: [pkg.go.dev][link-go-dev-reference].
 
 ## Assertions
 
-| Function                                    | Description                                                                              |
-|---------------------------------------------|------------------------------------------------------------------------------------------|
-| `True(t, condition)`                        | condition is true                                                                        |
-| `False(t, condition)`                       | condition is false                                                                       |
+| Function                                    | Description                                                                                   |
+|---------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `True(t, condition)`                        | condition is true                                                                             |
+| `False(t, condition)`                       | condition is false                                                                            |
 | `Nil(t, object)`                            | object is nil, including a typed nil pointer, slice, map, channel, function or unsafe.Pointer |
-| `NotNil(t, object)`                         | object is not nil                                                                        |
-| `Same(t, actual, expected)`                 | references have the same type and address; slices also the same length and capacity     |
-| `NotSame(t, actual, expected)`              | references have a different type or address                                              |
-| `Equal(t, actual, expected)`                | values are deeply equal                                                                  |
-| `NotEqual(t, actual, expected)`             | values are not deeply equal                                                              |
-| `EqualDelta(t, actual, expected, delta)`    | numeric values differ by at most delta                                                   |
-| `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta                                                 |
-| `Greater(t, actual, expected)`              | actual > expected, for any ordered type                                                  |
-| `GreaterOrEqual(t, actual, expected)`       | actual >= expected                                                                       |
-| `Less(t, actual, expected)`                 | actual < expected                                                                        |
-| `LessOrEqual(t, actual, expected)`          | actual <= expected                                                                       |
-| `Length(t, object, n)`                      | string, array, slice, map or channel has length n                                        |
-| `Empty(t, object)`                          | string, array, slice, map or channel has zero length                                     |
-| `NotEmpty(t, object)`                       | string, array, slice, map or channel has non-zero length                                 |
-| `Contains(t, object, element)`              | string contains substring, or array, slice or map values contain element                 |
-| `NotContains(t, object, element)`           | string does not contain substring, or array, slice or map values do not contain element  |
-| `Error(t, err)`                             | error is not nil                                                                         |
-| `NoError(t, err)`                           | error is nil                                                                             |
-| `ErrorIs(t, err, target)`                   | error matches target with `errors.Is`                                                    |
-| `NotErrorIs(t, err, target)`                | error does not match target with `errors.Is`                                             |
-| `ErrorAs(t, err, target)`                   | error is assignable to target with `errors.As`                                           |
-| `Matches(t, actual, pattern)`               | string matches regular expression                                                        |
-| `NotMatches(t, actual, pattern)`            | string does not match regular expression                                                 |
-| `Panics(t, fn)`                             | fn panics                                                                                |
-| `PanicsWith(t, fn, expected)`               | fn panics with a value deeply equal to expected; an error expected is matched with `errors.Is` |
-| `NotPanics(t, fn)`                          | fn does not panic                                                                        |
-| `EqualJSON(t, actual, expected)`            | JSON strings are semantically equal                                                      |
-| `JSON(t, object, expected)`                 | object marshals to JSON semantically equal to expected                                   |
-| `Fail(t, message)`                          | always fails with message                                                                |
-| `Failf(t, format, args...)`                 | always fails with formatted message                                                      |
+| `NotNil(t, object)`                         | object is not nil                                                                             |
+| `Same(t, actual, expected)`                 | references have the same type and address; slices also the same length and capacity           |
+| `NotSame(t, actual, expected)`              | references have a different type or address                                                   |
+| `Equal(t, actual, expected)`                | values are deeply equal                                                                       |
+| `NotEqual(t, actual, expected)`             | values are not deeply equal                                                                   |
+| `EqualDelta(t, actual, expected, delta)`    | numeric values differ by at most delta                                                        |
+| `NotEqualDelta(t, actual, expected, delta)` | numeric values differ by more than delta                                                      |
+| `Greater(t, actual, expected)`              | actual > expected, for any ordered type                                                       |
+| `GreaterOrEqual(t, actual, expected)`       | actual >= expected                                                                            |
+| `Less(t, actual, expected)`                 | actual < expected                                                                             |
+| `LessOrEqual(t, actual, expected)`          | actual <= expected                                                                            |
+| `Length(t, object, n)`                      | string, array, slice, map or channel has length n                                             |
+| `Empty(t, object)`                          | string, array, slice, map or channel has zero length                                          |
+| `NotEmpty(t, object)`                       | string, array, slice, map or channel has non-zero length                                      |
+| `Contains(t, object, element)`              | string contains substring, or array, slice or map values contain element                      |
+| `NotContains(t, object, element)`           | string does not contain substring, or array, slice or map values do not contain element       |
+| `Error(t, err)`                             | error is not nil                                                                              |
+| `NoError(t, err)`                           | error is nil                                                                                  |
+| `ErrorIs(t, err, target)`                   | error matches target with `errors.Is`                                                         |
+| `NotErrorIs(t, err, target)`                | error does not match target with `errors.Is`                                                  |
+| `ErrorAs(t, err, target)`                   | error is assignable to target with `errors.As`                                                |
+| `Matches(t, actual, pattern)`               | string matches regular expression                                                             |
+| `NotMatches(t, actual, pattern)`            | string does not match regular expression                                                      |
+| `Panics(t, fn)`                             | fn panics                                                                                     |
+| `PanicsWith(t, fn, expected)`               | fn panics with a value deeply equal to expected, or matching it with `errors.Is` for errors   |
+| `NotPanics(t, fn)`                          | fn does not panic                                                                             |
+| `EqualJSON(t, actual, expected)`            | JSON strings are semantically equal                                                           |
+| `JSON(t, object, expected)`                 | object marshals to JSON semantically equal to expected                                        |
+| `Fail(t, message)`                          | always fails with message                                                                     |
+| `Failf(t, format, args...)`                 | always fails with formatted message                                                           |
 
 ## Conventions
 
@@ -156,24 +156,25 @@ concatenated and prepended to the failure message. Use them as a prefix, `"user.
 **Nil:** `Nil`, `NotNil`, `Error` and `NoError` treat a typed nil (`(*MyErr)(nil)` stored in an `error`) as nil,
 unlike a plain `== nil` comparison. Pointers, slices, maps, channels, functions and `unsafe.Pointer` all qualify.
 
-**Equality:** `Equal` uses `reflect.DeepEqual`: pointers are compared by the values they reference and two non-nil
-functions are never equal. `Same` compares identity instead: same type and address, and for slices also the same
+**Equality:** `Equal` uses `reflect.DeepEqual`: pointers are compared by the values they reference, two non-nil
+functions are never equal, and a typed nil stored in an interface is not equal to an untyped `nil`. `Same` compares identity instead: same type and address, and for slices also the same
 length and capacity. Pointers to zero-size values and slices with zero capacity may share an address even when
 allocated separately.
 
-**Numbers:** `EqualDelta` compares integer types exactly, without a detour through `float64`, and panics on a negative
+**Numbers:** `EqualDelta` compares integer types exactly, without a detour through `float64`, and fails on a negative
 or NaN delta. NaN is only equal to NaN. `Greater`, `Less` and friends accept any `cmp.Ordered` type, strings
 included, and fail when either side is NaN.
 
 **Length and contents:** String length is measured in bytes, not runes. **`Contains` on a map searches the values,
 not the keys**, unlike testify. The element must be assignable to the container's element type; a mismatch is reported as a failure, not
-silently `false`.
+silently `false`. An untyped constant defaults to `int`, so write `Contains(t, ids, int64(1))` for an `[]int64`.
 
 **JSON:** `EqualJSON` and `JSON` compare structure, not text. Key order and whitespace are ignored, numbers are compared
 exactly, so `1.0` equals `1` and integers beyond 2^53 keep their precision.
 
-**Panics:** `Panics` recognises `panic(nil)`. `PanicsWith` matches an `error` expected value with `errors.Is` and
-anything else with `reflect.DeepEqual`.
+**Panics:** `Panics`, `PanicsWith` and `NotPanics` recognise `panic(nil)` and report its value as `nil` whatever the
+`GODEBUG=panicnil` setting. `PanicsWith` matches with `reflect.DeepEqual`, or with `errors.Is` when the expected value
+is an `error`. Values printed in failures are cut at 1024 bytes.
 
 ## Custom assertions
 

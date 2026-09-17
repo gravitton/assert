@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -88,9 +89,9 @@ func TestEqualDelta(t *testing.T) {
 	testEqualDelta[int64](t, math.MaxInt64, math.MinInt64, math.MaxInt64, false)
 	testEqualDelta[int8](t, 127, -128, 127, false)
 
-	testPanicsWith(t, func() { EqualDelta(newLogger(), 1, 2, -1) }, "delta must be non-negative", true)
-	testPanicsWith(t, func() { NotEqualDelta(newLogger(), 1, 2, -1) }, "delta must be non-negative", true)
-	testPanicsWith(t, func() { EqualDelta(newLogger(), 1.0, 2.0, math.NaN()) }, "delta must be non-negative", true)
+	testEqualDeltaInvalid(t, 1, 2, -1)
+	testEqualDeltaInvalid(t, 1.0, 2.0, math.NaN())
+	testEqualDelta[uintptr](t, 10, 12, 2, true)
 }
 
 func TestNil(t *testing.T) {
@@ -369,6 +370,12 @@ func TestPanicsWith(t *testing.T) {
 	testPanicsWith(t, func() { panic(fmt.Errorf("wrapped: %w", err)) }, err, true)
 	testPanicsWith(t, func() { panic(errors.New("other")) }, err, false)
 	testPanicsWith(t, func() { panic("not-an-error") }, err, false)
+
+	testPanicsWith(t, func() { panic(testSliceErr{"a"}) }, testSliceErr{"a"}, true)
+	testPanicsWith(t, func() { panic(testSliceErr{"a"}) }, testSliceErr{"b"}, false)
+
+	testPanicsWith(t, func() { panic(nil) }, nil, true)
+	testPanicsWith(t, func() { panic("boom") }, nil, false)
 }
 
 func TestNotPanics(t *testing.T) {
@@ -401,6 +408,8 @@ func TestMessages(t *testing.T) {
 		{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
 		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1\nexpected: 3"},
 		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta\n  actual: 1\nexpected: 2"},
+		{"EqualDelta invalid", func(t Testing) bool { return EqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
+		{"NotEqualDelta invalid", func(t Testing) bool { return NotEqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
 		{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\nexpected: 2"},
 		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\nexpected: 2"},
 		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\nexpected: 1"},
@@ -434,8 +443,9 @@ func TestMessages(t *testing.T) {
 		{"Panics", func(t Testing) bool { return Panics(t, func() {}, "ctx: ") }, "ctx: Should panic"},
 		{"PanicsWith", func(t Testing) bool { return PanicsWith(t, func() {}, "b", "ctx: ") }, "ctx: Should panic\nexpected: \"b\""},
 		{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
-		{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with error\n  actual: \"a\"\nexpected: ["},
-		{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should panic with error\n  actual: ["},
+		{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: ["},
+		{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should panic with value\n  actual: ["},
+		{"NotPanics nil", func(t Testing) bool { return NotPanics(t, func() { panic(nil) }, "ctx: ") }, "ctx: Should not panic\n  value: <nil>"},
 		{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n  value: \"a\""},
 	}
 
@@ -680,6 +690,37 @@ func testPanicsWith(t *testing.T, fn func(), expected any, result bool) {
 	tt := newLogger()
 	if PanicsWith(tt, fn, expected) != result {
 		t.Errorf("PanicsWith(%#v) should return %#v: %s", expected, result, tt.LastError)
+	}
+}
+
+func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
+	t.Helper()
+
+	tt := newLogger()
+	if EqualDelta(tt, actual, expected, delta) {
+		t.Errorf("EqualDelta(%v,%v,%v) should return false", actual, expected, delta)
+	}
+
+	tt = newLogger()
+	if NotEqualDelta(tt, actual, expected, delta) {
+		t.Errorf("NotEqualDelta(%v,%v,%v) should return false", actual, expected, delta)
+	}
+}
+
+func TestFormatTruncate(t *testing.T) {
+	long := strings.Repeat("é", formatLimit)
+	formatted := format(long)
+
+	if !strings.HasSuffix(formatted, "…") {
+		t.Errorf("long value should be truncated, got %d bytes", len(formatted))
+	}
+
+	if !utf8.ValidString(formatted) {
+		t.Errorf("truncated value should stay valid UTF-8")
+	}
+
+	if format("short") != `"short"` {
+		t.Errorf("short value should not be truncated")
 	}
 }
 
