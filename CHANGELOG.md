@@ -8,20 +8,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.5.0...main)
 ### Added
-- `Zero` and `NotZero`, using the type's `IsZero` method when present; a non-nil empty slice or map is not zero
+- `Zero` and `NotZero`, using the type's `IsZero` method when present; a non-nil empty slice or map is not zero, nor is a non-nil pointer
 - `EqualUnordered`, comparing arrays or slices as multisets and reporting extra and missing elements
 - `HasPrefix` and `HasSuffix` for strings and slices
 - `ErrorContains`, matching a substring of the error message
-- `Length`, `Empty` and `NotEmpty` accept a pointer to an array
+- `Length`, `Empty`, `NotEmpty`, `Contains`, `NotContains` and `EqualUnordered` accept a pointer to an array
 
 ### Changed
 - `EqualDelta` and `NotEqualDelta` failures show the delta and the actual difference
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` name their second argument `bound` and print it as `bound`
 - `ErrorAs` fails on an invalid target instead of panicking
+- `Equal` and `NotEqual` reject non-nil functions as `Should not be function` instead of reporting them as never equal
+- `Same` reports references of different types as `Should have same type` and prints both types
 - The value under test is named `actual` in every assertion's signature and failure message; `Length` prints the measured length as `length`
 - Failure messages: `Matches` quotes the actual string, channels and functions print their address once, and a trailing value after JSON is reported as `unexpected "…" after top-level value`
+- Failure messages: numbers inside arrays, slices and maps print like single numbers, e.g. `[]time.Duration{1s}`; byte slices print as `[]byte("…")`; map keys are sorted; all labels are right-aligned, including `NotPanics`' `value`
 
 ### Fixed
+- `EqualJSON` and `JSON` accepted non-JSON whitespace such as `\f` after the top-level value
 - `Error`, `NoError` and `ErrorContains` treated a typed nil stored in an `error` as nil, hiding the bug `err != nil` would hit
 - `EqualJSON` and `JSON` compared numbers with exponents beyond 1e6 as text and took long to expand large exponents
 - `EqualJSON`, `JSON`, `Matches`, `NotMatches` and the error assertions printed values without the 1024-byte cut

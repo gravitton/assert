@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -27,14 +28,62 @@ const (
 	typeMismatch     validity = "Should have same type"
 	invalidDelta     validity = "Should have non-negative delta"
 	invalidTarget    validity = "Should have pointer to error or interface target"
+	notFunction      validity = "Should not be function"
 )
 
-const formatLimit = 1024
+const (
+	formatLimit = 1024
+	labelWidth  = 8
+)
+
+const jsonWhitespace = " \t\r\n"
 
 type jsonNumber string
 
+type field struct {
+	label string
+	value string
+}
+
+type entry struct {
+	key   reflect.Value
+	value reflect.Value
+}
+
+func fail(t Testing, messages []string, reason string, fields ...field) bool {
+	t.Helper()
+
+	var message strings.Builder
+	message.WriteString(join(messages))
+	message.WriteString(reason)
+
+	for _, item := range fields {
+		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, truncate(item.value))
+	}
+
+	return Fail(t, message.String())
+}
+
+func errorFields(err error, fields ...field) []field {
+	return append([]field{{"msg", fmt.Sprint(err)}, {"error", formatGoSyntax(err)}}, fields...)
+}
+
 func equal[T Comparable](actual, expected T) bool {
 	return reflect.DeepEqual(actual, expected)
+}
+
+func deepEqual[T Comparable](actual, expected T) (bool, validity) {
+	if isFunction(actual) || isFunction(expected) {
+		return false, notFunction
+	}
+
+	return equal(actual, expected), valid
+}
+
+func isFunction(object any) bool {
+	valueOf := reflect.ValueOf(object)
+
+	return valueOf.Kind() == reflect.Func && !valueOf.IsNil()
 }
 
 func equalDelta[T Numeric](actual, expected, delta T) (bool, validity) {
@@ -116,7 +165,7 @@ func same[T Reference](actual, expected T) (bool, validity) {
 		return false, notReference
 	}
 
-	if valueOfActual.Type() != valueOfExpected.Type() {
+	if !sameType(actual, expected) {
 		return false, valid
 	}
 
@@ -129,6 +178,10 @@ func same[T Reference](actual, expected T) (bool, validity) {
 	}
 
 	return true, valid
+}
+
+func sameType(actual, expected any) bool {
+	return reflect.TypeOf(actual) == reflect.TypeOf(expected)
 }
 
 func isReference(value reflect.Value) bool {
@@ -162,7 +215,7 @@ func hasLength(value reflect.Value) bool {
 }
 
 func contains[S Iterable, E Comparable](object S, element E) (bool, validity) {
-	valueOf := reflect.ValueOf(object)
+	valueOf := indirectArray(reflect.ValueOf(object))
 
 	switch valueOf.Kind() {
 	case reflect.String:
@@ -183,7 +236,7 @@ func containsSubstring(object, element reflect.Value) (bool, validity) {
 }
 
 func containsValue(object reflect.Value, element any) (bool, validity) {
-	if !assignable(reflect.TypeOf(element), object.Type().Elem()) {
+	if !isAssignable(reflect.TypeOf(element), object.Type().Elem()) {
 		return false, elementType
 	}
 
@@ -197,30 +250,36 @@ func containsValue(object reflect.Value, element any) (bool, validity) {
 }
 
 func hasPrefix[S Iterable](object, prefix S) (bool, validity) {
-	return hasAffix(object, prefix, func(objectLength, prefixLength int) int {
-		return 0
-	})
+	valueOfObject, valueOfPrefix, reason := affixValues(object, prefix)
+	if reason != valid {
+		return false, reason
+	}
+
+	return equalAt(valueOfObject, valueOfPrefix, 0), valid
 }
 
 func hasSuffix[S Iterable](object, suffix S) (bool, validity) {
-	return hasAffix(object, suffix, func(objectLength, suffixLength int) int {
-		return objectLength - suffixLength
-	})
+	valueOfObject, valueOfSuffix, reason := affixValues(object, suffix)
+	if reason != valid {
+		return false, reason
+	}
+
+	return equalAt(valueOfObject, valueOfSuffix, valueOfObject.Len()-valueOfSuffix.Len()), valid
 }
 
-func hasAffix[S Iterable](object, affix S, start func(objectLength, affixLength int) int) (bool, validity) {
-	valueOfObject := reflect.ValueOf(object)
-	valueOfAffix := reflect.ValueOf(affix)
+func affixValues[S Iterable](object, affix S) (valueOfObject, valueOfAffix reflect.Value, reason validity) {
+	valueOfObject = reflect.ValueOf(object)
+	valueOfAffix = reflect.ValueOf(affix)
 
 	if !isStringOrSlice(valueOfObject) || !isStringOrSlice(valueOfAffix) {
-		return false, notStringOrSlice
+		return valueOfObject, valueOfAffix, notStringOrSlice
 	}
 
 	if valueOfObject.Type() != valueOfAffix.Type() {
-		return false, typeMismatch
+		return valueOfObject, valueOfAffix, typeMismatch
 	}
 
-	return equalAt(valueOfObject, valueOfAffix, start(valueOfObject.Len(), valueOfAffix.Len())), valid
+	return valueOfObject, valueOfAffix, valid
 }
 
 func isStringOrSlice(value reflect.Value) bool {
@@ -246,8 +305,8 @@ func equalAt(object, part reflect.Value, start int) bool {
 }
 
 func unorderedDifference[S Iterable](actual, expected S) (extra, missing reflect.Value, reason validity) {
-	valueOfActual := reflect.ValueOf(actual)
-	valueOfExpected := reflect.ValueOf(expected)
+	valueOfActual := indirectArray(reflect.ValueOf(actual))
+	valueOfExpected := indirectArray(reflect.ValueOf(expected))
 
 	if !isArrayOrSlice(valueOfActual) || !isArrayOrSlice(valueOfExpected) {
 		return extra, missing, notArrayOrSlice
@@ -260,6 +319,14 @@ func unorderedDifference[S Iterable](actual, expected S) (extra, missing reflect
 	extra, missing = difference(valueOfActual, valueOfExpected)
 
 	return extra, missing, valid
+}
+
+func indirectArray(value reflect.Value) reflect.Value {
+	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
+		return value.Elem()
+	}
+
+	return value
 }
 
 func isArrayOrSlice(value reflect.Value) bool {
@@ -304,7 +371,7 @@ func indexUnmatched(list, element reflect.Value, matched []bool) int {
 	return -1
 }
 
-func assignable(from, to reflect.Type) bool {
+func isAssignable(from, to reflect.Type) bool {
 	if from == nil {
 		return to.Kind() == reflect.Interface
 	}
@@ -349,7 +416,7 @@ func decodeJSON(s string) (any, error) {
 		return nil, err
 	}
 
-	if rest := strings.TrimSpace(s[decoder.InputOffset():]); rest != "" {
+	if rest := strings.TrimLeft(s[decoder.InputOffset():], jsonWhitespace); rest != "" {
 		return nil, fmt.Errorf("unexpected %s after top-level value", format(rest))
 	}
 
@@ -452,11 +519,16 @@ func isZero(object any) bool {
 		return true
 	}
 
+	valueOf := reflect.ValueOf(object)
+	if valueOf.Kind() == reflect.Pointer {
+		return false
+	}
+
 	if zeroer, ok := object.(interface{ IsZero() bool }); ok {
 		return zeroer.IsZero()
 	}
 
-	return reflect.ValueOf(object).IsZero()
+	return valueOf.IsZero()
 }
 
 func join(messages []string) string {
@@ -469,23 +541,34 @@ func format(object any) string {
 	switch valueOf.Kind() {
 	case reflect.Pointer:
 		if valueOf.IsNil() {
-			return formatGoSyntax(object)
+			return formatValue(object)
 		}
 
-		return truncate(fmt.Sprintf("[%p] %s", object, formatValue(valueOf.Elem().Interface())))
+		return fmt.Sprintf("[%p] %s", object, formatValue(valueOf.Elem().Interface()))
 	case reflect.Slice, reflect.Map:
-		return truncate(fmt.Sprintf("[%[1]p] %#[1]v", object))
+		return fmt.Sprintf("[%p] %s", object, formatValue(object))
 	default:
-		return truncate(formatValue(object))
+		return formatValue(object)
 	}
 }
 
 func formatValue(object any) string {
-	if isNumber(reflect.ValueOf(object)) {
-		return fmt.Sprint(object)
-	}
+	valueOf := reflect.ValueOf(object)
 
-	return fmt.Sprintf("%#v", object)
+	switch {
+	case isNumber(valueOf):
+		return fmt.Sprint(object)
+	case isNil(object):
+		return formatGoSyntax(object)
+	case isBytes(valueOf):
+		return fmt.Sprintf("%s(%q)", formatType(object), valueOf.Bytes())
+	case isArrayOrSlice(valueOf):
+		return formatComposite(valueOf.Type(), formatElements(valueOf))
+	case valueOf.Kind() == reflect.Map:
+		return formatComposite(valueOf.Type(), formatEntries(valueOf))
+	default:
+		return formatGoSyntax(object)
+	}
 }
 
 func isNumber(value reflect.Value) bool {
@@ -499,12 +582,66 @@ func isNumber(value reflect.Value) bool {
 	}
 }
 
-func formatError(err error) string {
-	return fmt.Sprintf("     msg: %s\n   error: %s", truncate(fmt.Sprint(err)), formatGoSyntax(err))
+func isBytes(value reflect.Value) bool {
+	return value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.Uint8
+}
+
+func formatElements(value reflect.Value) []string {
+	items := make([]string, 0, value.Len())
+	for _, item := range value.Seq2() {
+		items = append(items, formatValue(item.Interface()))
+	}
+
+	return items
+}
+
+func formatEntries(value reflect.Value) []string {
+	entries := make([]entry, 0, value.Len())
+	for key, item := range value.Seq2() {
+		entries = append(entries, entry{key, item})
+	}
+
+	slices.SortFunc(entries, func(a, b entry) int {
+		return compareKeys(a.key, b.key)
+	})
+
+	items := make([]string, len(entries))
+	for i, item := range entries {
+		items[i] = formatValue(item.key.Interface()) + ":" + formatValue(item.value.Interface())
+	}
+
+	return items
+}
+
+func compareKeys(a, b reflect.Value) int {
+	switch {
+	case a.CanInt():
+		return cmp.Compare(a.Int(), b.Int())
+	case a.CanUint():
+		return cmp.Compare(a.Uint(), b.Uint())
+	case a.CanFloat():
+		return cmp.Compare(a.Float(), b.Float())
+	case a.Kind() == reflect.String:
+		return strings.Compare(a.String(), b.String())
+	default:
+		return strings.Compare(formatValue(a.Interface()), formatValue(b.Interface()))
+	}
+}
+
+func formatComposite(typ reflect.Type, items []string) string {
+	return typ.String() + "{" + strings.Join(items, ", ") + "}"
+}
+
+func formatType(object any) string {
+	if _, ok := object.([]byte); ok {
+		return "[]byte"
+	}
+
+	return fmt.Sprintf("%T", object)
 }
 
 func formatGoSyntax(object any) string {
-	return truncate(fmt.Sprintf("%#v", object))
+	return fmt.Sprintf("%#v", object)
 }
 
 func truncate(s string) string {

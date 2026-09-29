@@ -70,6 +70,14 @@ func TestEqual(t *testing.T) {
 		testEqual(t, m, m, true)
 		testEqual(t, map[string]int{"a": 1}, map[string]int{"a": 1}, true)
 	})
+	t.Run("functions", func(t *testing.T) {
+		f := func() {}
+
+		testEqual(t, (func())(nil), (func())(nil), true)
+		testEqualInvalid(t, f, f)
+		testEqualInvalid(t, f, nil)
+		testEqualInvalid[any](t, 1, f)
+	})
 }
 
 func TestEqualDelta(t *testing.T) {
@@ -170,9 +178,10 @@ func TestZero(t *testing.T) {
 		testZero(t, testQuantity{}, true)
 		testZero(t, testQuantity{unit: "kg"}, true)
 		testZero(t, testQuantity{value: 1}, false)
-		testZero(t, &testQuantity{unit: "kg"}, true)
+		testZero(t, &testQuantity{unit: "kg"}, false)
 		testZero(t, &testQuantity{value: 1}, false)
 		testZero(t, (*testQuantity)(nil), true)
+		testZero(t, &time.Time{}, false)
 		testZero(t, time.Time{}, true)
 		testZero(t, time.Unix(0, 0), false)
 		testZero(t, time.Time{}.In(time.FixedZone("CET", 3600)), true)
@@ -199,6 +208,7 @@ func TestSame(t *testing.T) {
 		testSame(t, p, p, true)
 		testSame(t, ptr(v), ptr(v), false)
 		testSame(t, (*int)(nil), (*int)(nil), true)
+		testSame[any](t, (*int)(nil), (*int64)(nil), false)
 	})
 	t.Run("slices", func(t *testing.T) {
 		s := []int{1, 2}
@@ -212,12 +222,14 @@ func TestSame(t *testing.T) {
 		testSame(t, &s, &s, true)
 		testSame(t, []int{1, 2}, []int{1, 2}, false)
 		testSame(t, []byte("Hello World"), []byte("Hello World"), false)
+		testSame(t, []int(nil), []int(nil), true)
 	})
 	t.Run("maps", func(t *testing.T) {
 		m := map[string]int{"a": 1}
 
 		testSame(t, m, m, true)
 		testSame(t, map[string]int{"a": 1}, map[string]int{"a": 1}, false)
+		testSame(t, map[string]int(nil), map[string]int(nil), true)
 	})
 	t.Run("types", func(t *testing.T) {
 		var pair struct{ A int }
@@ -374,6 +386,8 @@ func TestContains(t *testing.T) {
 	})
 	t.Run("arrays", func(t *testing.T) {
 		testContains(t, [3]int{1, 2, 3}, 2, true)
+		testContains(t, &[3]int{1, 2, 3}, 2, true)
+		testContains(t, &[3]int{1, 2, 3}, 4, false)
 	})
 	t.Run("map values", func(t *testing.T) {
 		testContains(t, map[string]bool{"a": true, "b": false}, true, true)
@@ -409,6 +423,8 @@ func TestContains(t *testing.T) {
 		testContainsInvalid[any, int](t, nil, 5)
 		testContainsInvalid(t, 5, 5)
 		testContainsInvalid(t, bufferedChan(1), 1)
+		testContainsInvalid(t, (*[3]int)(nil), 1)
+		testContainsInvalid(t, ptr(1), 1)
 	})
 }
 
@@ -430,6 +446,8 @@ func TestEqualUnordered(t *testing.T) {
 	})
 	t.Run("arrays", func(t *testing.T) {
 		testEqualUnordered(t, [3]int{1, 2, 3}, [3]int{2, 3, 1}, true)
+		testEqualUnordered(t, &[3]int{1, 2, 3}, &[3]int{2, 3, 1}, true)
+		testEqualUnordered(t, &[3]int{1, 2, 3}, &[3]int{2, 3, 2}, false)
 	})
 	t.Run("element types", func(t *testing.T) {
 		testEqualUnordered(t, testSliceErr{"a", "b"}, testSliceErr{"b", "a"}, true)
@@ -444,6 +462,7 @@ func TestEqualUnordered(t *testing.T) {
 		testEqualUnordered[any](t, nil, []int{}, false)
 		testEqualUnordered[any](t, []int{1}, []int64{1}, false)
 		testEqualUnordered[any](t, []int{1}, [1]int{1}, false)
+		testEqualUnordered(t, (*[1]int)(nil), (*[1]int)(nil), false)
 	})
 }
 
@@ -627,6 +646,11 @@ func TestEqualJSON(t *testing.T) {
 		testEqualJSON(t, "Hello World", "Hello World", false)
 		testEqualJSON(t, `1 2`, `1`, false)
 		testEqualJSON(t, `1`, `1 }`, false)
+		testEqualJSON(t, "1\f", `1`, false)
+		testEqualJSON(t, "1\u00a0", `1`, false)
+	})
+	t.Run("whitespace", func(t *testing.T) {
+		testEqualJSON(t, " \t\r\n1 \t\r\n", `1`, true)
 	})
 }
 
@@ -708,6 +732,7 @@ func TestMessages(t *testing.T) {
 	t.Run("identity", func(t *testing.T) {
 		testMessages(t, []messageCase{
 			{"Same", func(t Testing) bool { return Same(t, ptr(1), ptr(1), "ctx: ") }, "ctx: Should be same\n"},
+			{"Same type", func(t Testing) bool { return Same[any](t, &x, new(int64), "ctx: ") }, "ctx: Should have same type\n  actual: *int\nexpected: *int64"},
 			{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
 			{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, "ctx: Should not be same\n"},
 			{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
@@ -718,7 +743,9 @@ func TestMessages(t *testing.T) {
 			{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal\n  actual: 1\nexpected: 2"},
 			{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal\n  actual: (*int)(nil)\nexpected: ["},
 			{"Equal unsigned", func(t Testing) bool { return Equal(t, uint(5), uint(6), "ctx: ") }, "ctx: Should be equal\n  actual: 5\nexpected: 6"},
+			{"Equal function", func(t Testing) bool { return Equal(t, TestMessages, TestMessages, "ctx: ") }, "ctx: Should not be function\n  actual: (func(*testing.T))(0x"},
 			{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
+			{"NotEqual function", func(t Testing) bool { return NotEqual(t, TestMessages, nil, "ctx: ") }, "ctx: Should not be function\n  actual: (func(*testing.T))(0x"},
 		})
 	})
 	t.Run("delta", func(t *testing.T) {
@@ -761,6 +788,7 @@ func TestMessages(t *testing.T) {
 			{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5\n element: 2"},
 			{"EqualUnordered", func(t Testing) bool { return EqualUnordered(t, []int{1, 2, 2}, []int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: ["},
 			{"EqualUnordered difference", func(t Testing) bool { return EqualUnordered(t, [3]int{1, 2, 2}, [3]int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: [3]int{1, 2, 2}\nexpected: [3]int{3, 2, 1}\n   extra: []int{2}\n missing: []int{3}"},
+			{"EqualUnordered durations", func(t Testing) bool { return EqualUnordered(t, [1]time.Duration{1e9}, [1]time.Duration{6e10}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: [1]time.Duration{1s}\nexpected: [1]time.Duration{1m0s}\n   extra: []time.Duration{1s}\n missing: []time.Duration{1m0s}"},
 			{"EqualUnordered invalid", func(t Testing) bool { return EqualUnordered(t, "a", "a", "ctx: ") }, "ctx: Should be array or slice\n  actual: \"a\"\nexpected: \"a\""},
 			{"EqualUnordered type", func(t Testing) bool { return EqualUnordered[any](t, []int{}, []uint{}, "ctx: ") }, "ctx: Should have same type\n  actual: ["},
 			{"HasPrefix", func(t Testing) bool { return HasPrefix(t, "ab", "b", "ctx: ") }, "ctx: Should have prefix\n  actual: \"ab\"\n  prefix: \"b\""},
@@ -808,8 +836,8 @@ func TestMessages(t *testing.T) {
 			{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
 			{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: ["},
 			{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should panic with value\n  actual: ["},
-			{"NotPanics nil", func(t Testing) bool { return NotPanics(t, func() { panic(nil) }, "ctx: ") }, "ctx: Should not panic\n  value: <nil>"},
-			{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n  value: \"a\""},
+			{"NotPanics nil", func(t Testing) bool { return NotPanics(t, func() { panic(nil) }, "ctx: ") }, "ctx: Should not panic\n   value: <nil>"},
+			{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n   value: \"a\""},
 		})
 	})
 }
@@ -821,6 +849,8 @@ type messageCase struct {
 }
 
 type testType string
+
+type testBytes []byte
 
 type testStruct struct {
 	a int
@@ -913,6 +943,20 @@ func testEqual[T Comparable](t *testing.T, actual, expected T, result bool) {
 	tt = newLogger()
 	if NotEqual(tt, actual, expected) != !result {
 		t.Errorf("NotEqual(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
+	}
+}
+
+func testEqualInvalid[T Comparable](t *testing.T, actual, expected T) {
+	t.Helper()
+
+	tt := newLogger()
+	if Equal(tt, actual, expected) {
+		t.Errorf("Equal(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotEqual(tt, actual, expected) {
+		t.Errorf("NotEqual(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
 	}
 }
 
@@ -1093,6 +1137,7 @@ func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
 func TestFormat(t *testing.T) {
 	t.Run("values", func(t *testing.T) {
 		u := uint(5)
+		sl := []time.Duration{time.Second}
 
 		cases := []struct {
 			name     string
@@ -1108,6 +1153,11 @@ func TestFormat(t *testing.T) {
 			{"string", testType("a"), `"a"`},
 			{"unsigned pointer", &u, fmt.Sprintf("[%p] 5", &u)},
 			{"nil pointer", (*uint)(nil), "(*uint)(nil)"},
+			{"duration array", [2]time.Duration{time.Second, 2 * time.Second}, "[2]time.Duration{1s, 2s}"},
+			{"byte array", [2]byte{1, 2}, "[2]uint8{1, 2}"},
+			{"interface array", [3]any{1, "a", nil}, `[3]interface {}{1, "a", <nil>}`},
+			{"nested array", [1][]byte{[]byte("a")}, `[1][]uint8{[]byte("a")}`},
+			{"pointer to slice", &sl, fmt.Sprintf("[%p] []time.Duration{1s}", &sl)},
 		}
 
 		for _, c := range cases {
@@ -1118,19 +1168,61 @@ func TestFormat(t *testing.T) {
 			})
 		}
 	})
-	t.Run("truncate", func(t *testing.T) {
-		long := strings.Repeat("é", formatLimit)
-		formatted := format(long)
+	t.Run("references", func(t *testing.T) {
+		s := []byte("a\xff")
+		n := []int(nil)
+		m := map[int]time.Duration{10: time.Second, 2: time.Minute, -1: 0}
+		k := map[string]int{"b": 1, "a": 2}
+		r := testBytes("{}")
 
-		if !strings.HasSuffix(formatted, "…") {
-			t.Errorf("long value should be truncated, got %d bytes", len(formatted))
+		cases := []struct {
+			name     string
+			object   any
+			expected string
+		}{
+			{"bytes", s, fmt.Sprintf(`[%p] []byte("a\xff")`, s)},
+			{"named bytes", r, fmt.Sprintf(`[%p] assert.testBytes("{}")`, r)},
+			{"nil slice", n, "[0x0] []int(nil)"},
+			{"integer keys", m, fmt.Sprintf("[%p] map[int]time.Duration{-1:0s, 2:1m0s, 10:1s}", m)},
+			{"string keys", k, fmt.Sprintf(`[%p] map[string]int{"a":2, "b":1}`, k)},
 		}
 
-		if !utf8.ValidString(formatted) {
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				if actual := format(c.object); actual != c.expected {
+					t.Errorf("format(%#v) should return %q, got %q", c.object, c.expected, actual)
+				}
+			})
+		}
+	})
+	t.Run("keys", func(t *testing.T) {
+		m := map[any]int{"b": 1, true: 2, 1.5: 3}
+
+		if actual := formatValue(m); actual != `map[interface {}]int{"b":1, 1.5:3, true:2}` {
+			t.Errorf("formatValue should sort interface keys by their output, got %q", actual)
+		}
+
+		if actual := formatValue(map[uint]int{10: 1, 2: 2}); actual != "map[uint]int{2:2, 10:1}" {
+			t.Errorf("formatValue should sort unsigned keys numerically, got %q", actual)
+		}
+
+		if actual := formatValue(map[float64]int{10: 1, 2.5: 2}); actual != "map[float64]int{2.5:2, 10:1}" {
+			t.Errorf("formatValue should sort float keys numerically, got %q", actual)
+		}
+	})
+	t.Run("truncate", func(t *testing.T) {
+		long := "a" + strings.Repeat("é", formatLimit)
+		truncated := truncate(long)
+
+		if !strings.HasSuffix(truncated, "…") {
+			t.Errorf("long value should be truncated, got %d bytes", len(truncated))
+		}
+
+		if !utf8.ValidString(truncated) {
 			t.Errorf("truncated value should stay valid UTF-8")
 		}
 
-		if format("short") != `"short"` {
+		if truncate("short") != "short" {
 			t.Errorf("short value should not be truncated")
 		}
 	})
@@ -1148,6 +1240,7 @@ func TestMessageTruncate(t *testing.T) {
 		{"EqualJSON invalid", func(t Testing) bool { return EqualJSON(t, long, "1") }},
 		{"Matches", func(t Testing) bool { return Matches(t, long, long+"b") }},
 		{"NoError", func(t Testing) bool { return NoError(t, errors.New(long)) }},
+		{"Equal", func(t Testing) bool { return Equal(t, long, long+"b") }},
 		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, errors.New(long), errors.New(long)) }},
 	}
 
