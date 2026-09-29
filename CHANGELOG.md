@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Error`, `NoError` and `ErrorContains` treated a typed nil stored in an `error` as nil, hiding the bug `err != nil` would hit
 - `EqualJSON` and `JSON` compared numbers with exponents beyond 1e6 as text and took long to expand large exponents
 - `EqualJSON`, `JSON`, `Matches`, `NotMatches` and the error assertions printed values without the 1024-byte cut
+- Failures printed unsigned integers in hex and ignored `String` methods on numbers; `time.Duration` now prints as `1.5s`, `uint(5)` as `5`
 
 ## [v1.5.0 (2026-09-17)](https://github.com/gravitton/assert/compare/v1.4.0...v1.5.0)
 ### Added

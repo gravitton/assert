@@ -192,7 +192,10 @@ keep their precision.
 
 **Panics:** `Panics`, `PanicsWith` and `NotPanics` recognise `panic(nil)` and report its value as `nil` whatever the
 `GODEBUG=panicnil` setting. `PanicsWith` matches with `reflect.DeepEqual`, or with `errors.Is` when the expected value
-is an `error`. Values printed in failures are cut at 1024 bytes.
+is an `error`.
+
+**Output:** Values are printed in Go syntax, except numbers, which print in decimal or through their `String` method,
+so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`. Values printed in failures are cut at 1024 bytes.
 
 ## Custom assertions
 

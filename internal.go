@@ -76,7 +76,12 @@ func formatDistance[T Numeric](actual, expected T) string {
 		return format(T(math.Abs(float64(expected) - float64(actual))))
 	}
 
-	return strconv.FormatUint(integerDistance(actual, expected), 10)
+	distance := integerDistance(actual, expected)
+	if typed := T(distance); typed >= 0 && uint64(typed) == distance {
+		return format(typed)
+	}
+
+	return strconv.FormatUint(distance, 10)
 }
 
 func isFloat[T Numeric]() bool {
@@ -467,11 +472,30 @@ func format(object any) string {
 			return formatGoSyntax(object)
 		}
 
-		return truncate(fmt.Sprintf("[%p] %#v", object, valueOf.Elem().Interface()))
+		return truncate(fmt.Sprintf("[%p] %s", object, formatValue(valueOf.Elem().Interface())))
 	case reflect.Slice, reflect.Map:
 		return truncate(fmt.Sprintf("[%[1]p] %#[1]v", object))
 	default:
-		return formatGoSyntax(object)
+		return truncate(formatValue(object))
+	}
+}
+
+func formatValue(object any) string {
+	if isNumber(reflect.ValueOf(object)) {
+		return fmt.Sprint(object)
+	}
+
+	return fmt.Sprintf("%#v", object)
+}
+
+func isNumber(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
 	}
 }
 
