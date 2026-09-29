@@ -14,7 +14,7 @@ import (
 
 func TestFail(t *testing.T) {
 	tt := newLogger()
-	if Fail(tt, "custom failure") != false {
+	if Fail(tt, "custom failure") {
 		t.Errorf("Fail should return false")
 	}
 	if tt.LastError != "custom failure" {
@@ -119,6 +119,39 @@ func TestNil(t *testing.T) {
 	testNil(t, testStruct{}, false)
 }
 
+func TestZero(t *testing.T) {
+	var e error = (*testPtrErr)(nil)
+
+	testZero(t, nil, true)
+	testZero(t, 0, true)
+	testZero(t, 1, false)
+	testZero(t, math.Copysign(0, -1), true)
+	testZero(t, "", true)
+	testZero(t, "a", false)
+	testZero(t, false, true)
+	testZero(t, testStruct{}, true)
+	testZero(t, testStruct{b: "a"}, false)
+	testZero(t, time.Time{}, true)
+	testZero(t, time.Unix(0, 0), false)
+	testZero(t, [2]int{}, true)
+	testZero(t, [2]int{0, 1}, false)
+	testZero(t, (*int)(nil), true)
+	testZero(t, ptr(0), false)
+	testZero(t, []int(nil), true)
+	testZero(t, []int{}, false)
+	testZero(t, map[string]int(nil), true)
+	testZero(t, map[string]int{}, false)
+	testZero(t, e, true)
+
+	testZero(t, testQuantity{}, true)
+	testZero(t, testQuantity{unit: "kg"}, true)
+	testZero(t, testQuantity{value: 1}, false)
+	testZero(t, &testQuantity{unit: "kg"}, true)
+	testZero(t, &testQuantity{value: 1}, false)
+	testZero(t, (*testQuantity)(nil), true)
+	testZero(t, time.Time{}.In(time.FixedZone("CET", 3600)), true)
+}
+
 func TestSame(t *testing.T) {
 	testSameInvalid(t, "Hello World", "Hello World")
 	testSameInvalid(t, 123, 123)
@@ -213,6 +246,9 @@ func TestLength(t *testing.T) {
 	testLength(t, []int(nil), 0, true)
 	testLength(t, map[string]int(nil), 0, true)
 	testLength(t, (chan int)(nil), 0, true)
+	testLength(t, &[3]int{1, 2, 3}, 3, true)
+	testLength(t, (*[2]int)(nil), 2, true)
+	testLength(t, ptr(1), 1, false)
 	testLength(t, 5, 1, false)
 	testLength[any](t, nil, 0, false)
 }
@@ -229,14 +265,16 @@ func TestEmpty(t *testing.T) {
 	testEmpty(t, (chan int)(nil), true)
 	testEmpty(t, bufferedChan(0), true)
 	testEmpty(t, bufferedChan(1), false)
+	testEmpty(t, &[0]int{}, true)
+	testEmpty(t, &[1]int{}, false)
 
 	tt := newLogger()
-	if Empty(tt, 5) != false {
+	if Empty(tt, 5) {
 		t.Errorf("Empty(5) should return false: %s", tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotEmpty(tt, 5) != false {
+	if NotEmpty(tt, 5) {
 		t.Errorf("NotEmpty(5) should return false: %s", tt.LastError)
 	}
 }
@@ -278,14 +316,90 @@ func TestContains(t *testing.T) {
 	testContainsInvalid(t, bufferedChan(1), 1)
 }
 
+func TestEqualUnordered(t *testing.T) {
+	testEqualUnordered(t, []int{1, 2, 3}, []int{3, 1, 2}, true)
+	testEqualUnordered(t, []int{1, 2, 3}, []int{1, 2, 3}, true)
+	testEqualUnordered(t, []int{1, 2, 2}, []int{2, 1, 2}, true)
+	testEqualUnordered(t, []int{1, 2, 2}, []int{1, 1, 2}, false)
+	testEqualUnordered(t, []int{1, 2}, []int{1, 2, 3}, false)
+	testEqualUnordered(t, []int{1, 2, 3}, []int{1, 2}, false)
+	testEqualUnordered(t, []int(nil), []int{}, true)
+	testEqualUnordered(t, []int(nil), []int(nil), true)
+	testEqualUnordered(t, [3]int{1, 2, 3}, [3]int{2, 3, 1}, true)
+	testEqualUnordered(t, [2]int{1, 1}, [2]int{1, 2}, false)
+	testEqualUnordered(t, testSliceErr{"a", "b"}, testSliceErr{"b", "a"}, true)
+	testEqualUnordered(t, []*int{ptr(1), ptr(2)}, []*int{ptr(2), ptr(1)}, true)
+	testEqualUnordered(t, []any{1, "a", nil}, []any{nil, 1, "a"}, true)
+	testEqualUnordered(t, []testStruct{{1, "a"}, {2, "b"}}, []testStruct{{2, "b"}, {1, "a"}}, true)
+
+	testEqualUnordered(t, "ab", "ba", false)
+	testEqualUnordered(t, 1, 1, false)
+	testEqualUnordered(t, map[int]int{1: 1}, map[int]int{1: 1}, false)
+	testEqualUnordered[any](t, nil, []int{}, false)
+	testEqualUnordered[any](t, []int{1}, []int64{1}, false)
+	testEqualUnordered[any](t, []int{1}, [1]int{1}, false)
+}
+
+func TestHasPrefix(t *testing.T) {
+	testAffix(t, HasPrefix, "HasPrefix", "Hello World", "Hello", true)
+	testAffix(t, HasPrefix, "HasPrefix", "Hello World", "World", false)
+	testAffix(t, HasPrefix, "HasPrefix", "Hello", "Hello World", false)
+	testAffix(t, HasPrefix, "HasPrefix", "Hello", "", true)
+	testAffix(t, HasPrefix, "HasPrefix", "", "", true)
+	testAffix[testType](t, HasPrefix, "HasPrefix", "Hello", "He", true)
+
+	testAffix(t, HasPrefix, "HasPrefix", []int{1, 2, 3}, []int{1, 2}, true)
+	testAffix(t, HasPrefix, "HasPrefix", []int{1, 2, 3}, []int{2, 3}, false)
+	testAffix(t, HasPrefix, "HasPrefix", []int{1, 2, 3}, []int{1, 2, 3}, true)
+	testAffix(t, HasPrefix, "HasPrefix", []int{1, 2}, []int{1, 2, 3}, false)
+	testAffix(t, HasPrefix, "HasPrefix", []int{1}, nil, true)
+	testAffix(t, HasPrefix, "HasPrefix", []int(nil), []int{}, true)
+	testAffix(t, HasPrefix, "HasPrefix", []*int{ptr(1), ptr(2)}, []*int{ptr(1)}, true)
+	testAffix(t, HasPrefix, "HasPrefix", testSliceErr{"a", "b"}, testSliceErr{"a"}, true)
+
+	testAffix(t, HasPrefix, "HasPrefix", 5, 5, false)
+	testAffix(t, HasPrefix, "HasPrefix", [2]int{1, 2}, [2]int{1, 2}, false)
+	testAffix(t, HasPrefix, "HasPrefix", map[int]int{}, map[int]int{}, false)
+	testAffix[any](t, HasPrefix, "HasPrefix", nil, "a", false)
+	testAffix[any](t, HasPrefix, "HasPrefix", "a", nil, false)
+	testAffix[any](t, HasPrefix, "HasPrefix", "a", testType("a"), false)
+	testAffix[any](t, HasPrefix, "HasPrefix", []int{1}, []int64{1}, false)
+}
+
+func TestHasSuffix(t *testing.T) {
+	testAffix(t, HasSuffix, "HasSuffix", "Hello World", "World", true)
+	testAffix(t, HasSuffix, "HasSuffix", "Hello World", "Hello", false)
+	testAffix(t, HasSuffix, "HasSuffix", "World", "Hello World", false)
+	testAffix(t, HasSuffix, "HasSuffix", "Hello", "", true)
+	testAffix(t, HasSuffix, "HasSuffix", "", "", true)
+	testAffix[testType](t, HasSuffix, "HasSuffix", "Hello", "lo", true)
+
+	testAffix(t, HasSuffix, "HasSuffix", []int{1, 2, 3}, []int{2, 3}, true)
+	testAffix(t, HasSuffix, "HasSuffix", []int{1, 2, 3}, []int{1, 2}, false)
+	testAffix(t, HasSuffix, "HasSuffix", []int{1, 2, 3}, []int{1, 2, 3}, true)
+	testAffix(t, HasSuffix, "HasSuffix", []int{2, 3}, []int{1, 2, 3}, false)
+	testAffix(t, HasSuffix, "HasSuffix", []int{1}, nil, true)
+	testAffix(t, HasSuffix, "HasSuffix", []int(nil), []int{}, true)
+	testAffix(t, HasSuffix, "HasSuffix", []*int{ptr(1), ptr(2)}, []*int{ptr(2)}, true)
+	testAffix(t, HasSuffix, "HasSuffix", testSliceErr{"a", "b"}, testSliceErr{"b"}, true)
+
+	testAffix(t, HasSuffix, "HasSuffix", 5, 5, false)
+	testAffix(t, HasSuffix, "HasSuffix", [2]int{1, 2}, [2]int{1, 2}, false)
+	testAffix(t, HasSuffix, "HasSuffix", map[int]int{}, map[int]int{}, false)
+	testAffix[any](t, HasSuffix, "HasSuffix", nil, "a", false)
+	testAffix[any](t, HasSuffix, "HasSuffix", "a", nil, false)
+	testAffix[any](t, HasSuffix, "HasSuffix", "a", testType("a"), false)
+	testAffix[any](t, HasSuffix, "HasSuffix", []int{1}, []int64{1}, false)
+}
+
 func TestError(t *testing.T) {
 	var err *testErr = nil
 
 	testError(t, nil, false)
 	testError(t, errors.New("ooh"), true)
-	testError(t, err, false)
+	testError(t, err, true)
 	testError(t, testErr{}, true)
-	testError(t, testSliceErr(nil), false)
+	testError(t, testSliceErr(nil), true)
 	testError(t, testSliceErr{"a"}, true)
 }
 
@@ -307,6 +421,20 @@ func TestErrorAs(t *testing.T) {
 	testErrorAs(t, errors.New("plain"), &target, false)
 	testErrorAs(t, nil, &target, false)
 	testErrorAs(t, errors.New("plain"), &iface, true)
+
+	testErrorAs(t, errors.New("plain"), nil, false)
+	testErrorAs(t, errors.New("plain"), target, false)
+	testErrorAs(t, errors.New("plain"), (*error)(nil), false)
+	testErrorAs(t, errors.New("plain"), ptr(1), false)
+}
+
+func TestErrorContains(t *testing.T) {
+	testErrorContains(t, errors.New("file not found"), "not found", true)
+	testErrorContains(t, errors.New("file not found"), "", true)
+	testErrorContains(t, errors.New("file not found"), "denied", false)
+	testErrorContains(t, fmt.Errorf("open: %w", errors.New("not found")), "open: not", true)
+	testErrorContains(t, nil, "", false)
+	testErrorContains(t, testSliceErr(nil), "Slice", true)
 }
 
 func TestMatches(t *testing.T) {
@@ -317,7 +445,7 @@ func TestMatches(t *testing.T) {
 	testMatches(t, "Hello World", `[`, false) // invalid regexp
 
 	tt := newLogger()
-	if NotMatches(tt, "Hello World", `[`) != false {
+	if NotMatches(tt, "Hello World", `[`) {
 		t.Errorf("NotMatches with invalid pattern should return false: %s", tt.LastError)
 	}
 }
@@ -337,6 +465,13 @@ func TestEqualJSON(t *testing.T) {
 	testEqualJSON(t, `[1, [2, {"a": 3.0}]]`, `[1, [2, {"a": 3}]]`, true)
 	testEqualJSON(t, `1e9999999`, `1e9999999`, true)
 	testEqualJSON(t, `1e9999999`, `1e9999998`, false)
+	testEqualJSON(t, `1e1000001`, `10e1000000`, true)
+	testEqualJSON(t, `1E+2`, `100`, true)
+	testEqualJSON(t, `1.50`, `15e-1`, true)
+	testEqualJSON(t, `0.00`, `-0e5`, true)
+	testEqualJSON(t, `-1`, `1`, false)
+	testEqualJSON(t, `0.001`, `1e-3`, true)
+	testEqualJSON(t, `0.001`, `1e-2`, false)
 	testEqualJSON(t, `1 2`, `1`, false)
 	testEqualJSON(t, `1`, `1 }`, false)
 }
@@ -403,43 +538,60 @@ func TestMessages(t *testing.T) {
 		{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
 		{"Nil", func(t Testing) bool { return Nil(t, &x, "ctx: ") }, "ctx: Should be nil\n  actual: ["},
 		{"NotNil", func(t Testing) bool { return NotNil(t, (*int)(nil), "ctx: ") }, "ctx: Should not be nil\n  actual: (*int)(nil)"},
+		{"Zero", func(t Testing) bool { return Zero(t, 1, "ctx: ") }, "ctx: Should be zero\n  actual: 1"},
+		{"NotZero", func(t Testing) bool { return NotZero(t, "", "ctx: ") }, "ctx: Should not be zero\n  actual: \"\""},
 		{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal\n  actual: 1\nexpected: 2"},
 		{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal\n  actual: (*int)(nil)\nexpected: ["},
 		{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
-		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1\nexpected: 3"},
-		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta\n  actual: 1\nexpected: 2"},
+		{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1\nexpected: 3\n   delta: 1\n    diff: 2"},
+		{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta\n  actual: 1\nexpected: 2\n   delta: 1\n    diff: 1"},
+		{"EqualDelta float", func(t Testing) bool { return EqualDelta(t, 1.5, 1.0, 0.25, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1.5\nexpected: 1\n   delta: 0.25\n    diff: 0.5"},
 		{"EqualDelta invalid", func(t Testing) bool { return EqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
 		{"NotEqualDelta invalid", func(t Testing) bool { return NotEqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
-		{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\nexpected: 2"},
-		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\nexpected: 2"},
-		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\nexpected: 1"},
-		{"LessOrEqual", func(t Testing) bool { return LessOrEqual(t, 2, 1, "ctx: ") }, "ctx: Should be less or equal\n  actual: 2\nexpected: 1"},
-		{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  object: ["},
-		{"Length invalid", func(t Testing) bool { return Length(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  object: ["},
-		{"Empty invalid", func(t Testing) bool { return Empty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  object: ["},
-		{"NotEmpty invalid", func(t Testing) bool { return NotEmpty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  object: 5"},
-		{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  object: ["},
-		{"Contains invalid", func(t Testing) bool { return Contains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
-		{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  object: ["},
-		{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  object: ["},
-		{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  object: 5\n element: 2"},
+		{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\n   bound: 2"},
+		{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\n   bound: 2"},
+		{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\n   bound: 1"},
+		{"LessOrEqual", func(t Testing) bool { return LessOrEqual(t, 2, 1, "ctx: ") }, "ctx: Should be less or equal\n  actual: 2\n   bound: 1"},
+		{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  actual: ["},
+		{"Length array", func(t Testing) bool { return Length(t, [1]int{1}, 2, "ctx: ") }, "ctx: Should have length\n  actual: [1]int{1}\n  length: 1\nexpected: 2"},
+		{"Length invalid", func(t Testing) bool { return Length(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
+		{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  actual: ["},
+		{"Empty invalid", func(t Testing) bool { return Empty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
+		{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  actual: ["},
+		{"NotEmpty invalid", func(t Testing) bool { return NotEmpty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
+		{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  actual: ["},
+		{"Contains invalid", func(t Testing) bool { return Contains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5\n element: 2"},
+		{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  actual: ["},
+		{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  actual: ["},
+		{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5\n element: 2"},
+		{"EqualUnordered", func(t Testing) bool { return EqualUnordered(t, []int{1, 2, 2}, []int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: ["},
+		{"EqualUnordered difference", func(t Testing) bool { return EqualUnordered(t, [3]int{1, 2, 2}, [3]int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: [3]int{1, 2, 2}\nexpected: [3]int{3, 2, 1}\n   extra: []int{2}\n missing: []int{3}"},
+		{"EqualUnordered invalid", func(t Testing) bool { return EqualUnordered(t, "a", "a", "ctx: ") }, "ctx: Should be array or slice\n  actual: \"a\"\nexpected: \"a\""},
+		{"EqualUnordered type", func(t Testing) bool { return EqualUnordered[any](t, []int{}, []uint{}, "ctx: ") }, "ctx: Should have same type\n  actual: ["},
+		{"HasPrefix", func(t Testing) bool { return HasPrefix(t, "ab", "b", "ctx: ") }, "ctx: Should have prefix\n  actual: \"ab\"\n  prefix: \"b\""},
+		{"HasPrefix invalid", func(t Testing) bool { return HasPrefix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  prefix: 1"},
+		{"HasPrefix type", func(t Testing) bool { return HasPrefix[any](t, "a", testType("a"), "ctx: ") }, "ctx: Should have same type\n  actual: \"a\"\n  prefix: \"a\""},
+		{"HasSuffix", func(t Testing) bool { return HasSuffix(t, "ab", "a", "ctx: ") }, "ctx: Should have suffix\n  actual: \"ab\"\n  suffix: \"a\""},
+		{"HasSuffix invalid", func(t Testing) bool { return HasSuffix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  suffix: 1"},
 		{"Error", func(t Testing) bool { return Error(t, nil, "ctx: ") }, "ctx: Should be error"},
 		{"NoError", func(t Testing) bool { return NoError(t, err, "ctx: ") }, "ctx: Should not be error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}"},
+		{"NoError typed nil", func(t Testing) bool { return NoError(t, ptrErr, "ctx: ") }, "ctx: Should not be error\n     msg: <nil>\n   error: (*assert.testPtrErr)(nil)"},
 		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, err, target, "ctx: ") }, "ctx: Should match error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: &errors.errorString{s:\"target\"}"},
 		{"NotErrorIs", func(t Testing) bool { return NotErrorIs(t, err, err, "ctx: ") }, "ctx: Should not match error\n"},
 		{"ErrorAs", func(t Testing) bool { return ErrorAs(t, err, &ptrErr, "ctx: ") }, "ctx: Should be assignable to target\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: **assert.testPtrErr"},
-		{"Matches", func(t Testing) bool { return Matches(t, "a", "b", "ctx: ") }, "ctx: Should match regexp\n  actual: a\n pattern: b"},
+		{"ErrorAs invalid", func(t Testing) bool { return ErrorAs(t, err, ptrErr, "ctx: ") }, "ctx: Should have pointer to error or interface target\n  target: *assert.testPtrErr"},
+		{"ErrorContains", func(t Testing) bool { return ErrorContains(t, err, "x", "ctx: ") }, "ctx: Should contain substring\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  substr: \"x\""},
+		{"ErrorContains nil", func(t Testing) bool { return ErrorContains(t, nil, "x", "ctx: ") }, "ctx: Should be error\n  substr: \"x\""},
+		{"Matches", func(t Testing) bool { return Matches(t, "a", "b", "ctx: ") }, "ctx: Should match regexp\n  actual: \"a\"\n pattern: b"},
 		{"Matches invalid", func(t Testing) bool { return Matches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
-		{"NotMatches", func(t Testing) bool { return NotMatches(t, "a", "a", "ctx: ") }, "ctx: Should not match regexp\n  actual: a\n pattern: a"},
+		{"NotMatches", func(t Testing) bool { return NotMatches(t, "a", "a", "ctx: ") }, "ctx: Should not match regexp\n  actual: \"a\"\n pattern: a"},
 		{"NotMatches invalid", func(t Testing) bool { return NotMatches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
 		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
-		{"EqualJSON trailing", func(t Testing) bool { return EqualJSON(t, "1 x", "1", "ctx: ") }, "ctx: Should be valid JSON\n  actual: 1 x\n     err: invalid character 'x' after top-level value"},
+		{"EqualJSON trailing", func(t Testing) bool { return EqualJSON(t, "1 x", "1", "ctx: ") }, "ctx: Should be valid JSON\n  actual: 1 x\n     err: unexpected \"x\" after top-level value"},
 		{"EqualJSON invalid actual", func(t Testing) bool { return EqualJSON(t, "x", "2", "ctx: ") }, "ctx: Should be valid JSON\n  actual: x\n     err: "},
 		{"EqualJSON invalid expected", func(t Testing) bool { return EqualJSON(t, "1", "x", "ctx: ") }, "ctx: Should be valid JSON\nexpected: x\n     err: "},
 		{"JSON", func(t Testing) bool { return JSON(t, 1, "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
-		{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should be marshalable\n  actual: [0x"},
+		{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should be marshalable\n  actual: (chan int)(0x"},
 		{"Panics", func(t Testing) bool { return Panics(t, func() {}, "ctx: ") }, "ctx: Should panic"},
 		{"PanicsWith", func(t Testing) bool { return PanicsWith(t, func() {}, "b", "ctx: ") }, "ctx: Should panic\nexpected: \"b\""},
 		{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
@@ -468,6 +620,15 @@ type testType string
 type testStruct struct {
 	a int
 	b string
+}
+
+type testQuantity struct {
+	value int
+	unit  string
+}
+
+func (z testQuantity) IsZero() bool {
+	return z.value == 0
 }
 
 type testErr struct{}
@@ -565,12 +726,12 @@ func testSameInvalid[T Reference](t *testing.T, actual, expected T) {
 	t.Helper()
 
 	tt := newLogger()
-	if Same(tt, actual, expected) != false {
+	if Same(tt, actual, expected) {
 		t.Errorf("Same(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotSame(tt, actual, expected) != false {
+	if NotSame(tt, actual, expected) {
 		t.Errorf("NotSame(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
 	}
 }
@@ -593,31 +754,31 @@ func testLength[T any](t *testing.T, actual T, expected int, result bool) {
 	}
 }
 
-func testEmpty[T any](t *testing.T, object T, result bool) {
+func testEmpty[T any](t *testing.T, actual T, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Empty(tt, object) != result {
-		t.Errorf("Empty(%#v) should return %#v: %s", object, result, tt.LastError)
+	if Empty(tt, actual) != result {
+		t.Errorf("Empty(%#v) should return %#v: %s", actual, result, tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotEmpty(tt, object) != !result {
-		t.Errorf("NotEmpty(%#v) should return %#v: %s", object, !result, tt.LastError)
+	if NotEmpty(tt, actual) != !result {
+		t.Errorf("NotEmpty(%#v) should return %#v: %s", actual, !result, tt.LastError)
 	}
 }
 
-func testContains[S Iterable, E Comparable](t *testing.T, object S, element E, result bool) {
+func testContains[S Iterable, E Comparable](t *testing.T, actual S, element E, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Contains(tt, object, element) != result {
-		t.Errorf("Contains(%#v,%#v) should return %#v: %s", object, element, result, tt.LastError)
+	if Contains(tt, actual, element) != result {
+		t.Errorf("Contains(%#v,%#v) should return %#v: %s", actual, element, result, tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotContains(tt, object, element) != !result {
-		t.Errorf("NotContains(%#v,%#v) should return %#v: %s", object, element, !result, tt.LastError)
+	if NotContains(tt, actual, element) != !result {
+		t.Errorf("NotContains(%#v,%#v) should return %#v: %s", actual, element, !result, tt.LastError)
 	}
 }
 
@@ -724,17 +885,85 @@ func TestFormatTruncate(t *testing.T) {
 	}
 }
 
-func testNil(t *testing.T, object any, result bool) {
+func TestMessageTruncate(t *testing.T) {
+	long := strings.Repeat("a", 2*formatLimit)
+	limit := 3*formatLimit + 100
+
+	cases := []struct {
+		name   string
+		assert func(t Testing) bool
+	}{
+		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, `"`+long+`"`, `"`+long+`b"`) }},
+		{"EqualJSON invalid", func(t Testing) bool { return EqualJSON(t, long, "1") }},
+		{"Matches", func(t Testing) bool { return Matches(t, long, long+"b") }},
+		{"NoError", func(t Testing) bool { return NoError(t, errors.New(long)) }},
+		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, errors.New(long), errors.New(long)) }},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tt := newLogger()
+			c.assert(tt)
+
+			if len(tt.LastError) > limit {
+				t.Errorf("message should be truncated, got %d bytes", len(tt.LastError))
+			}
+		})
+	}
+}
+
+func testNil(t *testing.T, actual any, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Nil(tt, object) != result {
-		t.Errorf("Nil(%#v) should return %#v: %s", object, result, tt.LastError)
+	if Nil(tt, actual) != result {
+		t.Errorf("Nil(%#v) should return %#v: %s", actual, result, tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotNil(tt, object) != !result {
-		t.Errorf("NotNil(%#v) should return %#v: %s", object, !result, tt.LastError)
+	if NotNil(tt, actual) != !result {
+		t.Errorf("NotNil(%#v) should return %#v: %s", actual, !result, tt.LastError)
+	}
+}
+
+func testZero(t *testing.T, actual any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if Zero(tt, actual) != result {
+		t.Errorf("Zero(%#v) should return %#v: %s", actual, result, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotZero(tt, actual) != !result {
+		t.Errorf("NotZero(%#v) should return %#v: %s", actual, !result, tt.LastError)
+	}
+}
+
+func testEqualUnordered[S Iterable](t *testing.T, actual, expected S, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if EqualUnordered(tt, actual, expected) != result {
+		t.Errorf("EqualUnordered(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testAffix[S Iterable](t *testing.T, assertion func(Testing, S, S, ...string) bool, name string, actual, affix S, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if assertion(tt, actual, affix) != result {
+		t.Errorf("%s(%#v,%#v) should return %#v: %s", name, actual, affix, result, tt.LastError)
+	}
+}
+
+func testErrorContains(t *testing.T, err error, substr string, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if ErrorContains(tt, err, substr) != result {
+		t.Errorf("ErrorContains(%#v,%#v) should return %#v: %s", err, substr, result, tt.LastError)
 	}
 }
 
@@ -765,17 +994,17 @@ func testJSON(t *testing.T, actual any, expected string, result bool) {
 	}
 }
 
-func testContainsInvalid[S Iterable, E Comparable](t *testing.T, object S, element E) {
+func testContainsInvalid[S Iterable, E Comparable](t *testing.T, actual S, element E) {
 	t.Helper()
 
 	tt := newLogger()
-	if Contains(tt, object, element) != false {
-		t.Errorf("Contains(%#v,%#v) should return false: %s", object, element, tt.LastError)
+	if Contains(tt, actual, element) {
+		t.Errorf("Contains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
 	}
 
 	tt = newLogger()
-	if NotContains(tt, object, element) != false {
-		t.Errorf("NotContains(%#v,%#v) should return false: %s", object, element, tt.LastError)
+	if NotContains(tt, actual, element) {
+		t.Errorf("NotContains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
 	}
 }
 
@@ -785,7 +1014,7 @@ func ptr(i int) *int {
 
 func bufferedChan(n int) chan int {
 	c := make(chan int, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		c <- i
 	}
 

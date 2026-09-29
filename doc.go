@@ -34,15 +34,19 @@
 //
 //   - [True] / [False] — boolean condition
 //   - [Nil] / [NotNil] — value is nil / non-nil, including typed nil references
+//   - [Zero] / [NotZero] — value is / is not the zero value of its type
 //   - [Equal] / [NotEqual] — deep value equality
 //   - [EqualDelta] / [NotEqualDelta] — numeric equality within a tolerance
 //   - [Greater] / [GreaterOrEqual] / [Less] / [LessOrEqual] — ordering of numbers and strings
 //   - [Same] / [NotSame] — reference identity (same type and address)
-//   - [Length] / [Empty] / [NotEmpty] — length of a string, array, slice, map, or channel
+//   - [Length] / [Empty] / [NotEmpty] — length of a string, array, array pointer, slice, map, or channel
 //   - [Contains] / [NotContains] — membership in a string, array, slice, or map values
+//   - [EqualUnordered] — arrays or slices have the same elements in any order
+//   - [HasPrefix] / [HasSuffix] — string or slice begins / ends with another
 //   - [Error] / [NoError] — error is non-nil / nil
 //   - [ErrorIs] / [NotErrorIs] — error matches / does not match a target with errors.Is
 //   - [ErrorAs] — error is assignable to a target with errors.As
+//   - [ErrorContains] — error message contains a substring
 //   - [Matches] / [NotMatches] — string matches / does not match a regular expression
 //   - [EqualJSON] — semantic JSON string equality
 //   - [JSON] — object marshals to an expected JSON string
