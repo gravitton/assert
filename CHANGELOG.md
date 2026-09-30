@@ -8,35 +8,39 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.5.0...main)
 ### Added
-- `Zero` and `NotZero`, using the value's `IsZero` method when present; a non-nil empty slice or map is not zero, nor is a non-nil pointer
-- `EqualUnordered`, comparing arrays or slices as multisets and reporting extra and missing elements
+- `Zero` and `NotZero`, using the value's own `IsZero` method when it has one
+- `EqualUnordered`, comparing arrays, array pointers or slices as multisets and reporting extra and missing elements
 - `HasPrefix` and `HasSuffix` for strings and slices
-- `ErrorContains`, matching a substring of the error message as `fmt` prints it
-- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` accept a pointer to an array; `Contains`, `NotContains` and `EqualUnordered` reject a nil one as `Should be non-nil array pointer`
+- `ErrorContains`, matching a substring of the error message
+- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` accept a pointer to an array
 - Runnable examples showing the failure messages of each assertion
 
 ### Changed
 - **Breaking:** `Error`, `NoError` and `ErrorContains` treat a typed nil stored in an `error` as an error, as `err != nil` does
-- **Breaking:** `EqualJSON` and `JSON` compare numbers as `float64`, as `encoding/json` decodes them, instead of by exact decimal value; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
-- **Breaking:** `Contains` and `NotContains` on a string require the substring to have the string's type, so a named string type and `string` are reported as `Should have element of same type`
+- **Breaking:** `EqualJSON` and `JSON` compare numbers as `float64` instead of exactly; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
+- **Breaking:** `Contains` and `NotContains` on a string require the substring to have the string's type
 - `Same` reports references of different types as `Should have same type` instead of `Should be same`
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` report a NaN as `Should not be NaN`
-- `ErrorAs` fails on an invalid target as `Should have pointer to error or interface target` instead of panicking
-- The value under test is named `actual` in every signature and failure message, and the second argument of `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` is named `bound`; `Length` prints the measured length as `length`
-- Failure messages: `EqualDelta` and `NotEqualDelta` show the delta and the actual difference, and an invalid delta with `actual` and `expected`
-- Failure messages: a number prints in decimal or through its `String` method, so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`
-- Failure messages: a pointer prints as `&` followed by the value it points to, one level deep
-- Failure messages: the error under test prints its type as `error` instead of its `%#v` value, which showed the addresses inside a wrapped error
-- Failure messages: values of different types that print the same, such as `1` and `int64(1)`, and the values in a type mismatch are printed with their types
-- Failure messages: `Matches` quotes the actual string, multi-line text such as an error message or JSON is indented under its label, and all labels are right-aligned
-- Failure messages: values are printed in full instead of being cut at 1024 bytes
-- Failure messages: `NotPanics` and `PanicsWith` print the `Error()` text of a panic value that is an error as `msg`
-- Failure messages: `Equal` and `PanicsWith` add a `hint` when two unequal values of one type print the same, such as NaN
-- Documented that the `messages` strings are concatenated with no separator, neither between them nor before the failure message
+- `ErrorAs` fails on an invalid target instead of panicking
+- The value under test is named `actual` in every signature and failure message, and the second argument of `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` is named `bound`
+- Failure messages:
+  - a number prints in decimal or through its `String` method, so `uint(5)` prints as `5` instead of `0x5` and a `time.Duration` as `1.5s`
+  - a pointer prints as `&` followed by the value it points to, instead of its address and value
+  - a slice, map, channel or function prints without its address, except in `Same` and `NotSame`
+  - values of different types that print the same, and the values in a type mismatch, print with their types, such as `int(1)` and `int64(1)`
+  - `Equal` and `PanicsWith` add a `hint` when two unequal values of one type print the same, such as NaN
+  - the error under test prints its type as `error` instead of its `%#v` value
+  - a panic value that is an error prints its `Error()` text as `msg`
+  - `EqualDelta` and `NotEqualDelta` show the delta and the actual difference
+  - `Length` prints the measured length as `length`
+  - `Matches` quotes the actual string
+  - multi-line text is indented under its label, and all labels are right-aligned
+  - values print in full instead of being cut at 1024 bytes
+- Documented that the `messages` strings are concatenated with no separator
 
 ### Fixed
-- `Panics` passed and `NotPanics` reported a panic for a nil function; all three panic assertions now fail with `Should be non-nil function`
-- `Contains` and `NotContains` accepted an element assignable to the element type but not identical to it, such as `[]int` in a slice of a named `[]int` type, which could never match; it is now reported as `Should have element of same type`
+- `Panics` passed and `NotPanics` failed on a nil function; all three panic assertions now fail with `Should be non-nil function`
+- `Contains` and `NotContains` accepted an element assignable to the element type but not identical to it, which could never match
 - `EqualJSON` and `JSON` accepted non-JSON whitespace such as `\f` after the top-level value
 
 ## [v1.5.0](https://github.com/gravitton/assert/compare/v1.4.0...v1.5.0) (2026-09-17)
