@@ -24,6 +24,7 @@ const (
 	notNumber        validity = "Should not be NaN"
 	invalidDelta     validity = "Should have non-negative delta"
 	notFunction      validity = "Should not be function"
+	elementType      validity = "Should have element of same type"
 	notError         validity = "Should be error"
 	invalidTarget    validity = "Should have pointer to error or interface target"
 	nilFunction      validity = "Should be non-nil function"
@@ -137,18 +138,42 @@ func length(object any) (int, validity) {
 }
 
 func contains(object, element any) (bool, validity) {
-	value := reflect.Indirect(reflect.ValueOf(object))
+	value := indirectArray(reflect.ValueOf(object))
 
 	switch value.Kind() {
 	case reflect.String:
-		return strings.Contains(value.String(), reflect.ValueOf(element).String()), valid
+		return containsSubstring(value, reflect.ValueOf(element))
 	case reflect.Array, reflect.Slice, reflect.Map:
-		return slices.ContainsFunc(elements(value), func(item any) bool {
-			return reflect.DeepEqual(item, element)
-		}), valid
+		return containsElement(value, element)
 	default:
 		return false, notIterable
 	}
+}
+
+func containsSubstring(value, element reflect.Value) (bool, validity) {
+	if element.Kind() != reflect.String {
+		return false, elementType
+	}
+
+	return strings.Contains(value.String(), element.String()), valid
+}
+
+func containsElement(value reflect.Value, element any) (bool, validity) {
+	if !isAssignable(reflect.TypeOf(element), value.Type().Elem()) {
+		return false, elementType
+	}
+
+	return slices.ContainsFunc(elements(value), func(item reflect.Value) bool {
+		return reflect.DeepEqual(item.Interface(), element)
+	}), valid
+}
+
+func isAssignable(from, to reflect.Type) bool {
+	if from == nil {
+		return to.Kind() == reflect.Interface
+	}
+
+	return from.AssignableTo(to)
 }
 
 func hasPrefix(object, prefix any) (bool, validity) {
@@ -202,29 +227,44 @@ func equalAt(object, part reflect.Value, start int) bool {
 	return reflect.DeepEqual(object.Slice(start, end).Interface(), part.Interface())
 }
 
-func unorderedDifference(actual, expected any) (extra, missing []any, reason validity) {
-	valueOfActual := reflect.Indirect(reflect.ValueOf(actual))
-	valueOfExpected := reflect.Indirect(reflect.ValueOf(expected))
+func unorderedDifference(actual, expected any) (extra, missing reflect.Value, reason validity) {
+	valueOfActual := indirectArray(reflect.ValueOf(actual))
+	valueOfExpected := indirectArray(reflect.ValueOf(expected))
 
 	if !isArrayOrSlice(valueOfActual) || !isArrayOrSlice(valueOfExpected) {
-		return nil, nil, notArrayOrSlice
+		return extra, missing, notArrayOrSlice
 	}
 
-	missing = elements(valueOfExpected)
+	if valueOfActual.Type() != valueOfExpected.Type() {
+		return extra, missing, typeMismatch
+	}
+
+	var extraItems []reflect.Value
+	missingItems := elements(valueOfExpected)
 
 	for _, item := range elements(valueOfActual) {
-		index := slices.IndexFunc(missing, func(candidate any) bool {
-			return reflect.DeepEqual(candidate, item)
+		index := slices.IndexFunc(missingItems, func(candidate reflect.Value) bool {
+			return reflect.DeepEqual(candidate.Interface(), item.Interface())
 		})
 
 		if index >= 0 {
-			missing = slices.Delete(missing, index, index+1)
+			missingItems = slices.Delete(missingItems, index, index+1)
 		} else {
-			extra = append(extra, item)
+			extraItems = append(extraItems, item)
 		}
 	}
 
-	return extra, missing, valid
+	itemType := valueOfActual.Type().Elem()
+
+	return sliceOf(itemType, extraItems), sliceOf(itemType, missingItems), valid
+}
+
+func indirectArray(value reflect.Value) reflect.Value {
+	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
+		return value.Elem()
+	}
+
+	return value
 }
 
 func isArrayOrSlice(value reflect.Value) bool {
@@ -236,13 +276,17 @@ func isArrayOrSlice(value reflect.Value) bool {
 	}
 }
 
-func elements(value reflect.Value) []any {
-	items := make([]any, 0, value.Len())
+func elements(value reflect.Value) []reflect.Value {
+	items := make([]reflect.Value, 0, value.Len())
 	for _, item := range value.Seq2() {
-		items = append(items, item.Interface())
+		items = append(items, item)
 	}
 
 	return items
+}
+
+func sliceOf(itemType reflect.Type, items []reflect.Value) reflect.Value {
+	return reflect.Append(reflect.MakeSlice(reflect.SliceOf(itemType), 0, len(items)), items...)
 }
 
 func errorIs(err, target error) bool {

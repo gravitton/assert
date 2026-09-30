@@ -357,8 +357,8 @@ func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...strin
 
 	if extra, missing, reason := unorderedDifference(actual, expected); reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
-	} else if len(extra) > 0 || len(missing) > 0 {
-		return fail(t, messages, "Should be equal in any order", field{"actual", actual}, field{"expected", expected}, field{"extra", extra}, field{"missing", missing})
+	} else if extra.Len() > 0 || missing.Len() > 0 {
+		return fail(t, messages, "Should be equal in any order", field{"actual", actual}, field{"expected", expected}, field{"extra", extra.Interface()}, field{"missing", missing.Interface()})
 	}
 
 	return true
