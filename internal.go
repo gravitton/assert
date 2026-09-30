@@ -202,6 +202,10 @@ func affixValues(object, affix any) (valueOfObject, valueOfAffix reflect.Value, 
 		return valueOfObject, valueOfAffix, notStringOrSlice
 	}
 
+	if valueOfObject.Type() != valueOfAffix.Type() {
+		return valueOfObject, valueOfAffix, typeMismatch
+	}
+
 	return valueOfObject, valueOfAffix, valid
 }
 

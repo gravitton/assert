@@ -371,7 +371,9 @@ func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...strin
 func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool {
 	t.Helper()
 
-	if found, reason := hasPrefix(actual, prefix); reason != valid {
+	if found, reason := hasPrefix(actual, prefix); reason == typeMismatch {
+		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"prefix", typeOf(prefix)})
+	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"prefix", prefix})
 	} else if !found {
 		return fail(t, messages, "Should have prefix", field{"actual", actual}, field{"prefix", prefix})
@@ -387,7 +389,9 @@ func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool
 func HasSuffix[S Iterable](t Testing, actual, suffix S, messages ...string) bool {
 	t.Helper()
 
-	if found, reason := hasSuffix(actual, suffix); reason != valid {
+	if found, reason := hasSuffix(actual, suffix); reason == typeMismatch {
+		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"suffix", typeOf(suffix)})
+	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"suffix", suffix})
 	} else if !found {
 		return fail(t, messages, "Should have suffix", field{"actual", actual}, field{"suffix", suffix})
