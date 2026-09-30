@@ -324,5 +324,11 @@ func isNil(object any) bool {
 }
 
 func isZero(object any) bool {
-	return object == nil || reflect.ValueOf(object).IsZero()
+	value := reflect.ValueOf(object)
+
+	if zeroer, ok := object.(interface{ IsZero() bool }); ok && value.Kind() != reflect.Pointer {
+		return zeroer.IsZero()
+	}
+
+	return object == nil || value.IsZero()
 }
