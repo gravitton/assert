@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/gravitton/assert/compare/v1.5.0...main)
+## [Unreleased](https://github.com/gravitton/assert/compare/v1.6.0...main)
+
+## [v1.6.0](https://github.com/gravitton/assert/compare/v1.5.0...v1.6.0) (2026-09-30)
 ### Added
 - `Zero` and `NotZero`, using the value's own `IsZero` method when it has one
 - `EqualUnordered`, comparing arrays, array pointers or slices as multisets and reporting extra and missing elements
