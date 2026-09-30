@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 	"unsafe"
 )
 
@@ -756,12 +755,15 @@ func TestMessages(t *testing.T) {
 		})
 	})
 	t.Run("identity", func(t *testing.T) {
+		s := []int{1, 2}
+
 		testMessages(t, []messageCase{
 			{"Same", func(t Testing) bool { return Same(t, ptr(1), ptr(1), "ctx: ") }, "ctx: Should be same\n"},
 			{"Same type", func(t Testing) bool { return Same[any](t, &x, new(int64), "ctx: ") }, "ctx: Should have same type\n  actual: *int\nexpected: *int64"},
-			{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
-			{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, "ctx: Should not be same\n"},
-			{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: 1\nexpected: 1"},
+			{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: int\nexpected: int"},
+			{"Same slice", func(t Testing) bool { return Same(t, s, s[:1], "ctx: ") }, fmt.Sprintf("ctx: Should be same\n  actual: [%p] []int{1, 2}\nexpected: [%p] []int{1}", s, s)},
+			{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, fmt.Sprintf("ctx: Should not be same\n  actual: [%p] (*int)(%p)", &x, &x)},
+			{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: int\nexpected: int"},
 		})
 	})
 	t.Run("equality", func(t *testing.T) {
@@ -885,8 +887,6 @@ type messageCase struct {
 }
 
 type testType string
-
-type testBytes []byte
 
 type testStruct struct {
 	a int
@@ -1170,118 +1170,7 @@ func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
 	}
 }
 
-func TestFormat(t *testing.T) {
-	t.Run("values", func(t *testing.T) {
-		u := uint(5)
-		sl := []time.Duration{time.Second}
-
-		cases := []struct {
-			name     string
-			object   any
-			expected string
-		}{
-			{"nil", nil, "<nil>"},
-			{"int", -3, "-3"},
-			{"unsigned", uint8(5), "5"},
-			{"float", float32(1.5), "1.5"},
-			{"duration", 1500 * time.Millisecond, "1.5s"},
-			{"uintptr", uintptr(10), "0xa"},
-			{"string", testType("a"), `"a"`},
-			{"unsigned pointer", &u, "&5"},
-			{"nil pointer", (*uint)(nil), "(*uint)(nil)"},
-			{"pointer to slice", &sl, "&[]time.Duration{1000000000}"},
-			{"pointer to struct", &testStruct{1, "a"}, `&assert.testStruct{a:1, b:"a"}`},
-			{"bytes", []byte("a\xff"), `[]byte("a\xff")`},
-			{"named bytes", testBytes("{}"), `assert.testBytes("{}")`},
-			{"nil bytes", []byte(nil), "[]byte(nil)"},
-			{"slice", []int{1}, "[]int{1}"},
-		}
-
-		for _, c := range cases {
-			t.Run(c.name, func(t *testing.T) {
-				if actual := format(c.object); actual != c.expected {
-					t.Errorf("format(%#v) should return %q, got %q", c.object, c.expected, actual)
-				}
-			})
-		}
-	})
-	t.Run("references", func(t *testing.T) {
-		x := 1
-		s := []int{1}
-
-		cases := []struct {
-			name     string
-			object   any
-			expected string
-		}{
-			{"pointer", &x, fmt.Sprintf("[%p] &1", &x)},
-			{"slice", s, fmt.Sprintf("[%p] []int{1}", s)},
-			{"nil slice", []int(nil), "[0x0] []int(nil)"},
-			{"value", 1, "1"},
-		}
-
-		for _, c := range cases {
-			t.Run(c.name, func(t *testing.T) {
-				if actual := formatReference(c.object); actual != c.expected {
-					t.Errorf("formatReference(%#v) should return %q, got %q", c.object, c.expected, actual)
-				}
-			})
-		}
-	})
-	t.Run("window", func(t *testing.T) {
-		long := "a" + strings.Repeat("é", formatLimit)
-		cut := window(long, 0)
-
-		if !strings.HasSuffix(cut, ellipsis) || strings.HasPrefix(cut, ellipsis) {
-			t.Errorf("long value should be cut at the end, got %q", cut)
-		}
-
-		if len(cut) > formatLimit || !utf8.ValidString(cut) {
-			t.Errorf("cut value should fit the limit and stay valid UTF-8, got %d bytes", len(cut))
-		}
-
-		if window(cut, 0) != cut {
-			t.Errorf("cut value should not be cut again")
-		}
-
-		if window("short", 3) != "short" {
-			t.Errorf("short value should not be cut")
-		}
-
-		middle := window(long, len(long)/2)
-		if !strings.HasPrefix(middle, ellipsis) || !strings.HasSuffix(middle, ellipsis) || !utf8.ValidString(middle) {
-			t.Errorf("value should be cut around the position, got %q", middle)
-		}
-
-		end := window(long, len(long))
-		if !strings.HasPrefix(end, ellipsis) || strings.HasSuffix(end, ellipsis) || len(end) < formatLimit-4 {
-			t.Errorf("value should be cut to its full tail, got %d bytes", len(end))
-		}
-	})
-	t.Run("pairs", func(t *testing.T) {
-		common := strings.Repeat("a", 2*formatLimit)
-
-		actual, expected := formatPair(common+"x"+common, common+"y"+common)
-		if !strings.Contains(actual, "ax") || !strings.Contains(expected, "ay") {
-			t.Errorf("pair should show the first difference, got %q", actual)
-		}
-
-		actual, expected = formatSuffixPair(common+"x"+common, "y"+common)
-		if !strings.Contains(actual, "xa") || !strings.Contains(expected, "ya") {
-			t.Errorf("suffix pair should show the last difference, got %q", actual)
-		}
-
-		actual, expected = formatPair(1, int64(1))
-		if actual != "int(1)" || expected != "int64(1)" {
-			t.Errorf("pair should show types of equally printed values, got %q and %q", actual, expected)
-		}
-
-		actual, expected = formatPair(math.NaN(), math.NaN())
-		if actual != "NaN" || expected != "NaN" {
-			t.Errorf("pair should not show types of the same type, got %q and %q", actual, expected)
-		}
-	})
-}
+const formatLimit = 1024
 
 func TestMessageTruncate(t *testing.T) {
 	long := strings.Repeat("a", 2*formatLimit)

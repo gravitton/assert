@@ -4,13 +4,9 @@ import (
 	"cmp"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"math"
-	"math/big"
 	"reflect"
 	"regexp"
-	"runtime"
-	"strconv"
+	"slices"
 	"strings"
 )
 
@@ -22,127 +18,33 @@ const (
 	notIterable      validity = "Should be iterable"
 	notStringOrSlice validity = "Should be string or slice"
 	notArrayOrSlice  validity = "Should be array or slice"
-	elementType      validity = "Should have element of same type"
 	typeMismatch     validity = "Should have same type"
-	invalidDelta     validity = "Should have non-negative delta"
+	notNumber        validity = "Should not be NaN"
+	notError         validity = "Should be error"
 	invalidTarget    validity = "Should have pointer to error or interface target"
-	notFunction      validity = "Should not be function"
-	nilFunction      validity = "Should be non-nil function"
 )
 
-const jsonWhitespace = " \t\r\n"
-
-type jsonNumber string
-
-type field struct {
-	label string
-	value string
-}
-
-func fail(t Testing, messages []string, reason string, fields ...field) bool {
-	t.Helper()
-
-	var message strings.Builder
-	message.WriteString(strings.Join(messages, ""))
-	message.WriteString(reason)
-
-	for _, item := range fields {
-		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, indent(window(item.value, 0)))
-	}
-
-	return Fail(t, message.String())
-}
-
-func errorFields(err error, fields ...field) []field {
-	return append([]field{{"msg", fmt.Sprint(err)}, {"error", format(err)}}, fields...)
-}
-
-func equal[T Comparable](actual, expected T) (bool, validity) {
-	if isFunction(actual) || isFunction(expected) {
-		return false, notFunction
-	}
-
+func equal(actual, expected any) (bool, validity) {
 	return reflect.DeepEqual(actual, expected), valid
 }
 
-func isFunction(object any) bool {
-	valueOf := reflect.ValueOf(object)
-
-	return valueOf.Kind() == reflect.Func && !valueOf.IsNil()
-}
-
 func equalDelta[T Numeric](actual, expected, delta T) (bool, validity) {
-	if delta < 0 || delta != delta {
-		return false, invalidDelta
-	}
-
-	if isFloat[T]() {
-		return equalDeltaFloat(float64(actual), float64(expected), float64(delta)), valid
-	}
-
-	return integerDistance(actual, expected) <= uint64(delta), valid
+	return distance(actual, expected) <= delta, valid
 }
 
-func equalDeltaFloat(actual, expected, delta float64) bool {
-	if actual == expected {
-		return true
-	}
-
-	if actual != actual || expected != expected {
-		return actual != actual && expected != expected
-	}
-
-	diff := expected - actual
-
-	return diff >= -delta && diff <= delta
+func distance[T Numeric](actual, expected T) T {
+	return max(actual, expected) - min(actual, expected)
 }
 
-func integerDistance[T Numeric](a, b T) uint64 {
-	if a < b {
-		a, b = b, a
+func compare[T Ordered](actual, bound T) (int, validity) {
+	if actual != actual || bound != bound {
+		return 0, notNumber
 	}
 
-	return uint64(a) - uint64(b)
+	return cmp.Compare(actual, bound), valid
 }
 
-func formatDistance[T Numeric](actual, expected T) string {
-	if isFloat[T]() {
-		return format(T(math.Abs(float64(expected) - float64(actual))))
-	}
-
-	distance := integerDistance(actual, expected)
-	if typed := T(distance); typed >= 0 && uint64(typed) == distance {
-		return format(typed)
-	}
-
-	return strconv.FormatUint(distance, 10)
-}
-
-func isFloat[T Numeric]() bool {
-	switch reflect.TypeFor[T]().Kind() {
-	case reflect.Float32, reflect.Float64:
-		return true
-	default:
-		return false
-	}
-}
-
-func compare[T Ordered](actual, expected T) (int, bool) {
-	if actual != actual || expected != expected {
-		return 0, false
-	}
-
-	switch {
-	case actual < expected:
-		return -1, true
-	case actual > expected:
-		return 1, true
-	default:
-		return 0, true
-	}
-}
-
-func same[T Reference](actual, expected T) (bool, validity) {
+func same(actual, expected any) (bool, validity) {
 	valueOfActual := reflect.ValueOf(actual)
 	valueOfExpected := reflect.ValueOf(expected)
 
@@ -174,63 +76,33 @@ func isReference(value reflect.Value) bool {
 	}
 }
 
-func length[S Iterable](object S) (int, validity) {
-	valueOf := reflect.ValueOf(object)
+func length(object any) (int, validity) {
+	value := reflect.Indirect(reflect.ValueOf(object))
 
-	if !hasLength(valueOf) {
-		return 0, notIterable
-	}
-
-	return valueOf.Len(), valid
-}
-
-func hasLength(value reflect.Value) bool {
 	switch value.Kind() {
 	case reflect.String, reflect.Array, reflect.Slice, reflect.Map, reflect.Chan:
-		return true
-	case reflect.Pointer:
-		return value.Type().Elem().Kind() == reflect.Array
+		return value.Len(), valid
 	default:
-		return false
+		return 0, notIterable
 	}
 }
 
-func contains[S Iterable, E Comparable](object S, element E) (bool, validity) {
-	valueOf := indirectArray(reflect.ValueOf(object))
+func contains(object, element any) (bool, validity) {
+	value := reflect.Indirect(reflect.ValueOf(object))
 
-	switch valueOf.Kind() {
+	switch value.Kind() {
 	case reflect.String:
-		return containsSubstring(valueOf, reflect.ValueOf(element))
+		return strings.Contains(value.String(), reflect.ValueOf(element).String()), valid
 	case reflect.Array, reflect.Slice, reflect.Map:
-		return containsValue(valueOf, element)
+		return slices.ContainsFunc(elements(value), func(item any) bool {
+			return reflect.DeepEqual(item, element)
+		}), valid
 	default:
 		return false, notIterable
 	}
 }
 
-func containsSubstring(object, element reflect.Value) (bool, validity) {
-	if element.Kind() != reflect.String {
-		return false, elementType
-	}
-
-	return strings.Contains(object.String(), element.String()), valid
-}
-
-func containsValue(object reflect.Value, element any) (bool, validity) {
-	if !isAssignable(reflect.TypeOf(element), object.Type().Elem()) {
-		return false, elementType
-	}
-
-	for _, item := range object.Seq2() {
-		if reflect.DeepEqual(item.Interface(), element) {
-			return true, valid
-		}
-	}
-
-	return false, valid
-}
-
-func hasPrefix[S Iterable](object, prefix S) (bool, validity) {
+func hasPrefix(object, prefix any) (bool, validity) {
 	valueOfObject, valueOfPrefix, reason := affixValues(object, prefix)
 	if reason != valid {
 		return false, reason
@@ -239,7 +111,7 @@ func hasPrefix[S Iterable](object, prefix S) (bool, validity) {
 	return equalAt(valueOfObject, valueOfPrefix, 0), valid
 }
 
-func hasSuffix[S Iterable](object, suffix S) (bool, validity) {
+func hasSuffix(object, suffix any) (bool, validity) {
 	valueOfObject, valueOfSuffix, reason := affixValues(object, suffix)
 	if reason != valid {
 		return false, reason
@@ -248,16 +120,12 @@ func hasSuffix[S Iterable](object, suffix S) (bool, validity) {
 	return equalAt(valueOfObject, valueOfSuffix, valueOfObject.Len()-valueOfSuffix.Len()), valid
 }
 
-func affixValues[S Iterable](object, affix S) (valueOfObject, valueOfAffix reflect.Value, reason validity) {
+func affixValues(object, affix any) (valueOfObject, valueOfAffix reflect.Value, reason validity) {
 	valueOfObject = reflect.ValueOf(object)
 	valueOfAffix = reflect.ValueOf(affix)
 
 	if !isStringOrSlice(valueOfObject) || !isStringOrSlice(valueOfAffix) {
 		return valueOfObject, valueOfAffix, notStringOrSlice
-	}
-
-	if valueOfObject.Type() != valueOfAffix.Type() {
-		return valueOfObject, valueOfAffix, typeMismatch
 	}
 
 	return valueOfObject, valueOfAffix, valid
@@ -285,29 +153,29 @@ func equalAt(object, part reflect.Value, start int) bool {
 	return reflect.DeepEqual(object.Slice(start, end).Interface(), part.Interface())
 }
 
-func unorderedDifference[S Iterable](actual, expected S) (extra, missing reflect.Value, reason validity) {
-	valueOfActual := indirectArray(reflect.ValueOf(actual))
-	valueOfExpected := indirectArray(reflect.ValueOf(expected))
+func unorderedDifference(actual, expected any) (extra, missing []any, reason validity) {
+	valueOfActual := reflect.Indirect(reflect.ValueOf(actual))
+	valueOfExpected := reflect.Indirect(reflect.ValueOf(expected))
 
 	if !isArrayOrSlice(valueOfActual) || !isArrayOrSlice(valueOfExpected) {
-		return extra, missing, notArrayOrSlice
+		return nil, nil, notArrayOrSlice
 	}
 
-	if valueOfActual.Type() != valueOfExpected.Type() {
-		return extra, missing, typeMismatch
-	}
+	missing = elements(valueOfExpected)
 
-	extra, missing = difference(valueOfActual, valueOfExpected)
+	for _, item := range elements(valueOfActual) {
+		index := slices.IndexFunc(missing, func(candidate any) bool {
+			return reflect.DeepEqual(candidate, item)
+		})
+
+		if index >= 0 {
+			missing = slices.Delete(missing, index, index+1)
+		} else {
+			extra = append(extra, item)
+		}
+	}
 
 	return extra, missing, valid
-}
-
-func indirectArray(value reflect.Value) reflect.Value {
-	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
-		return value.Elem()
-	}
-
-	return value
 }
 
 func isArrayOrSlice(value reflect.Value) bool {
@@ -319,45 +187,25 @@ func isArrayOrSlice(value reflect.Value) bool {
 	}
 }
 
-func difference(actual, expected reflect.Value) (extra, missing reflect.Value) {
-	sliceType := reflect.SliceOf(actual.Type().Elem())
-	extra = reflect.MakeSlice(sliceType, 0, 0)
-	missing = reflect.MakeSlice(sliceType, 0, 0)
-	matched := make([]bool, expected.Len())
-
-	for i := range actual.Len() {
-		if j := indexUnmatched(expected, actual.Index(i), matched); j >= 0 {
-			matched[j] = true
-		} else {
-			extra = reflect.Append(extra, actual.Index(i))
-		}
+func elements(value reflect.Value) []any {
+	items := make([]any, 0, value.Len())
+	for _, item := range value.Seq2() {
+		items = append(items, item.Interface())
 	}
 
-	for j, found := range matched {
-		if !found {
-			missing = reflect.Append(missing, expected.Index(j))
-		}
-	}
-
-	return extra, missing
+	return items
 }
 
-func indexUnmatched(list, element reflect.Value, matched []bool) int {
-	for j := range list.Len() {
-		if !matched[j] && reflect.DeepEqual(list.Index(j).Interface(), element.Interface()) {
-			return j
-		}
-	}
-
-	return -1
+func errorIs(err, target error) bool {
+	return errors.Is(err, target)
 }
 
-func isAssignable(from, to reflect.Type) bool {
-	if from == nil {
-		return to.Kind() == reflect.Interface
+func errorContains(err error, substr string) (bool, validity) {
+	if err == nil {
+		return false, notError
 	}
 
-	return from.AssignableTo(to)
+	return strings.Contains(err.Error(), substr), valid
 }
 
 func errorAs(err error, target any) (bool, validity) {
@@ -380,144 +228,30 @@ func isErrorTarget(target any) bool {
 }
 
 func matches(actual, pattern string) (bool, error) {
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return false, err
-	}
-
-	return re.MatchString(actual), nil
+	return regexp.MatchString(pattern, actual)
 }
 
 func decodeJSON(s string) (any, error) {
-	decoder := json.NewDecoder(strings.NewReader(s))
-	decoder.UseNumber()
+	var value any
+	err := json.Unmarshal([]byte(s), &value)
 
-	value, err := decodeJSONValue(decoder)
-	if err != nil {
-		return nil, err
-	}
-
-	if rest := strings.TrimLeft(s[decoder.InputOffset():], jsonWhitespace); rest != "" {
-		return nil, fmt.Errorf("unexpected %s after top-level value", format(rest))
-	}
-
-	return value, nil
-}
-
-func decodeJSONValue(decoder *json.Decoder) (any, error) {
-	token, err := decoder.Token()
-	if err != nil {
-		return nil, err
-	}
-
-	switch value := token.(type) {
-	case json.Delim:
-		if value == '{' {
-			return decodeJSONObject(decoder)
-		}
-
-		return decodeJSONArray(decoder)
-	case json.Number:
-		return normalizeJSONNumber(value), nil
-	default:
-		return value, nil
-	}
-}
-
-func decodeJSONObject(decoder *json.Decoder) (map[string]any, error) {
-	object := map[string]any{}
-
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return nil, err
-		}
-
-		key := token.(string)
-		if _, ok := object[key]; ok {
-			return nil, fmt.Errorf("duplicate key %s", format(key))
-		}
-
-		if object[key], err = decodeJSONValue(decoder); err != nil {
-			return nil, err
-		}
-	}
-
-	_, err := decoder.Token()
-
-	return object, err
-}
-
-func decodeJSONArray(decoder *json.Decoder) ([]any, error) {
-	array := []any{}
-
-	for decoder.More() {
-		value, err := decodeJSONValue(decoder)
-		if err != nil {
-			return nil, err
-		}
-
-		array = append(array, value)
-	}
-
-	_, err := decoder.Token()
-
-	return array, err
-}
-
-func normalizeJSONNumber(number json.Number) jsonNumber {
-	mantissa, exponent, _ := strings.Cut(strings.ToLower(number.String()), "e")
-	unsigned, negative := strings.CutPrefix(mantissa, "-")
-	integer, fraction, _ := strings.Cut(unsigned, ".")
-
-	digits := strings.TrimLeft(integer+fraction, "0")
-	if digits == "" {
-		return "0"
-	}
-
-	significant := strings.TrimRight(digits, "0")
-
-	scale, _ := new(big.Int).SetString(cmp.Or(exponent, "0"), 10)
-	scale.Add(scale, big.NewInt(int64(len(digits)-len(significant)-len(fraction))))
-
-	normalized := significant + "e" + scale.String()
-	if negative {
-		normalized = "-" + normalized
-	}
-
-	return jsonNumber(normalized)
+	return value, err
 }
 
 func panics(fn func()) (panicked bool, value any, reason validity) {
-	if fn == nil {
-		return false, nil, nilFunction
-	}
+	value = recovered(fn)
 
-	panicked, value = capturePanic(fn)
-
-	return panicked, value, valid
+	return value != nil, value, valid
 }
 
-func capturePanic(fn func()) (panicked bool, value any) {
+func recovered(fn func()) (value any) {
 	defer func() {
-		if panicked {
-			value = normalizePanic(recover())
-		}
+		value = recover()
 	}()
 
-	panicked = true
 	fn()
-	panicked = false
 
-	return panicked, nil
-}
-
-func normalizePanic(value any) any {
-	if _, ok := value.(*runtime.PanicNilError); ok {
-		return nil
-	}
-
-	return value
+	return nil
 }
 
 func panicsWith(value, expected any) bool {
@@ -546,18 +280,5 @@ func isNil(object any) bool {
 }
 
 func isZero(object any) bool {
-	if isNil(object) {
-		return true
-	}
-
-	valueOf := reflect.ValueOf(object)
-	if valueOf.Kind() == reflect.Pointer {
-		return false
-	}
-
-	if zeroer, ok := object.(interface{ IsZero() bool }); ok {
-		return zeroer.IsZero()
-	}
-
-	return valueOf.IsZero()
+	return object == nil || reflect.ValueOf(object).IsZero()
 }

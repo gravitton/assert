@@ -1,11 +1,6 @@
 package assert
 
-import (
-	"encoding/json"
-	"errors"
-	"reflect"
-	"strings"
-)
+import "encoding/json"
 
 // Testing is an interface wrapper around *testing.T
 type Testing interface {
@@ -60,7 +55,7 @@ func Nil(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
 	if !isNil(actual) {
-		return fail(t, messages, "Should be nil", field{"actual", format(actual)})
+		return fail(t, messages, "Should be nil", field{"actual", actual})
 	}
 
 	return true
@@ -73,7 +68,7 @@ func NotNil(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
 	if isNil(actual) {
-		return fail(t, messages, "Should not be nil", field{"actual", format(actual)})
+		return fail(t, messages, "Should not be nil", field{"actual", actual})
 	}
 
 	return true
@@ -91,7 +86,7 @@ func Zero(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
 	if !isZero(actual) {
-		return fail(t, messages, "Should be zero", field{"actual", format(actual)})
+		return fail(t, messages, "Should be zero", field{"actual", actual})
 	}
 
 	return true
@@ -109,7 +104,7 @@ func NotZero(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
 	if isZero(actual) {
-		return fail(t, messages, "Should not be zero", field{"actual", format(actual)})
+		return fail(t, messages, "Should not be zero", field{"actual", actual})
 	}
 
 	return true
@@ -127,12 +122,10 @@ func NotZero(t Testing, actual any, messages ...string) bool {
 func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if identical, reason := same(actual, expected); reason == typeMismatch {
-		return fail(t, messages, string(reason), field{"actual", formatType(actual)}, field{"expected", formatType(expected)})
-	} else if reason != valid {
-		return fail(t, messages, string(reason), field{"actual", formatReference(actual)}, field{"expected", formatReference(expected)})
+	if identical, reason := same(actual, expected); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"expected", typeOf(expected)})
 	} else if !identical {
-		return fail(t, messages, "Should be same", field{"actual", formatReference(actual)}, field{"expected", formatReference(expected)})
+		return fail(t, messages, "Should be same", field{"actual", identity(actual)}, field{"expected", identity(expected)})
 	}
 
 	return true
@@ -147,9 +140,9 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 	t.Helper()
 
 	if identical, reason := same(actual, expected); reason == notReference {
-		return fail(t, messages, string(reason), field{"actual", formatReference(actual)}, field{"expected", formatReference(expected)})
+		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"expected", typeOf(expected)})
 	} else if identical {
-		return fail(t, messages, "Should not be same", field{"actual", formatReference(actual)})
+		return fail(t, messages, "Should not be same", field{"actual", identity(actual)})
 	}
 
 	return true
@@ -165,13 +158,9 @@ func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool
 	t.Helper()
 
 	if equals, reason := equal(actual, expected); reason != valid {
-		formattedActual, formattedExpected := formatPair(actual, expected)
-
-		return fail(t, messages, string(reason), field{"actual", formattedActual}, field{"expected", formattedExpected})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
 	} else if !equals {
-		formattedActual, formattedExpected := formatPair(actual, expected)
-
-		return fail(t, messages, "Should be equal", field{"actual", formattedActual}, field{"expected", formattedExpected})
+		return fail(t, messages, "Should be equal", field{"actual", actual}, field{"expected", expected})
 	}
 
 	return true
@@ -186,9 +175,9 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 	t.Helper()
 
 	if equals, reason := equal(actual, expected); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)}, field{"expected", format(expected)})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
 	} else if equals {
-		return fail(t, messages, "Should not be equal", field{"actual", format(actual)})
+		return fail(t, messages, "Should not be equal", field{"actual", actual})
 	}
 
 	return true
@@ -201,9 +190,9 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	t.Helper()
 
 	if within, reason := equalDelta(actual, expected, delta); reason != valid {
-		return fail(t, messages, string(reason), field{"delta", format(delta)})
+		return fail(t, messages, string(reason), field{"delta", delta})
 	} else if !within {
-		return fail(t, messages, "Should be equal in delta", field{"actual", format(actual)}, field{"expected", format(expected)}, field{"delta", format(delta)}, field{"diff", formatDistance(actual, expected)})
+		return fail(t, messages, "Should be equal in delta", field{"actual", actual}, field{"expected", expected}, field{"delta", delta}, field{"diff", distance(actual, expected)})
 	}
 
 	return true
@@ -216,9 +205,9 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 	t.Helper()
 
 	if within, reason := equalDelta(actual, expected, delta); reason != valid {
-		return fail(t, messages, string(reason), field{"delta", format(delta)})
+		return fail(t, messages, string(reason), field{"delta", delta})
 	} else if within {
-		return fail(t, messages, "Should not be equal in delta", field{"actual", format(actual)}, field{"expected", format(expected)}, field{"delta", format(delta)}, field{"diff", formatDistance(actual, expected)})
+		return fail(t, messages, "Should not be equal in delta", field{"actual", actual}, field{"expected", expected}, field{"delta", delta}, field{"diff", distance(actual, expected)})
 	}
 
 	return true
@@ -230,8 +219,10 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 func Greater[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
-	if order, ok := compare(actual, bound); !ok || order <= 0 {
-		return fail(t, messages, "Should be greater", field{"actual", format(actual)}, field{"bound", format(bound)})
+	if order, reason := compare(actual, bound); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"bound", bound})
+	} else if order <= 0 {
+		return fail(t, messages, "Should be greater", field{"actual", actual}, field{"bound", bound})
 	}
 
 	return true
@@ -243,8 +234,10 @@ func Greater[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 func GreaterOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
-	if order, ok := compare(actual, bound); !ok || order < 0 {
-		return fail(t, messages, "Should be greater or equal", field{"actual", format(actual)}, field{"bound", format(bound)})
+	if order, reason := compare(actual, bound); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"bound", bound})
+	} else if order < 0 {
+		return fail(t, messages, "Should be greater or equal", field{"actual", actual}, field{"bound", bound})
 	}
 
 	return true
@@ -256,8 +249,10 @@ func GreaterOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) b
 func Less[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
-	if order, ok := compare(actual, bound); !ok || order >= 0 {
-		return fail(t, messages, "Should be less", field{"actual", format(actual)}, field{"bound", format(bound)})
+	if order, reason := compare(actual, bound); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"bound", bound})
+	} else if order >= 0 {
+		return fail(t, messages, "Should be less", field{"actual", actual}, field{"bound", bound})
 	}
 
 	return true
@@ -269,8 +264,10 @@ func Less[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 func LessOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
-	if order, ok := compare(actual, bound); !ok || order > 0 {
-		return fail(t, messages, "Should be less or equal", field{"actual", format(actual)}, field{"bound", format(bound)})
+	if order, reason := compare(actual, bound); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"bound", bound})
+	} else if order > 0 {
+		return fail(t, messages, "Should be less or equal", field{"actual", actual}, field{"bound", bound})
 	}
 
 	return true
@@ -283,9 +280,9 @@ func Length[S Iterable](t Testing, actual S, expected int, messages ...string) b
 	t.Helper()
 
 	if size, reason := length(actual); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)})
+		return fail(t, messages, string(reason), field{"actual", actual})
 	} else if size != expected {
-		return fail(t, messages, "Should have length", field{"actual", format(actual)}, field{"length", format(size)}, field{"expected", format(expected)})
+		return fail(t, messages, "Should have length", field{"actual", actual}, field{"length", size}, field{"expected", expected})
 	}
 
 	return true
@@ -298,9 +295,9 @@ func Empty[S Iterable](t Testing, actual S, messages ...string) bool {
 	t.Helper()
 
 	if size, reason := length(actual); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)})
+		return fail(t, messages, string(reason), field{"actual", actual})
 	} else if size != 0 {
-		return fail(t, messages, "Should be empty", field{"actual", format(actual)})
+		return fail(t, messages, "Should be empty", field{"actual", actual})
 	}
 
 	return true
@@ -313,9 +310,9 @@ func NotEmpty[S Iterable](t Testing, actual S, messages ...string) bool {
 	t.Helper()
 
 	if size, reason := length(actual); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)})
+		return fail(t, messages, string(reason), field{"actual", actual})
 	} else if size == 0 {
-		return fail(t, messages, "Should not be empty", field{"actual", format(actual)})
+		return fail(t, messages, "Should not be empty", field{"actual", actual})
 	}
 
 	return true
@@ -328,9 +325,9 @@ func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages
 	t.Helper()
 
 	if found, reason := contains(actual, element); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)}, field{"element", format(element)})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"element", element})
 	} else if !found {
-		return fail(t, messages, "Should contain element", field{"actual", format(actual)}, field{"element", format(element)})
+		return fail(t, messages, "Should contain element", field{"actual", actual}, field{"element", element})
 	}
 
 	return true
@@ -343,9 +340,9 @@ func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messa
 	t.Helper()
 
 	if found, reason := contains(actual, element); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", format(actual)}, field{"element", format(element)})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"element", element})
 	} else if found {
-		return fail(t, messages, "Should not contain element", field{"actual", format(actual)}, field{"element", format(element)})
+		return fail(t, messages, "Should not contain element", field{"actual", actual}, field{"element", element})
 	}
 
 	return true
@@ -359,13 +356,9 @@ func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...strin
 	t.Helper()
 
 	if extra, missing, reason := unorderedDifference(actual, expected); reason != valid {
-		formattedActual, formattedExpected := formatPair(actual, expected)
-
-		return fail(t, messages, string(reason), field{"actual", formattedActual}, field{"expected", formattedExpected})
-	} else if extra.Len() > 0 || missing.Len() > 0 {
-		formattedActual, formattedExpected := formatPair(actual, expected)
-
-		return fail(t, messages, "Should be equal in any order", field{"actual", formattedActual}, field{"expected", formattedExpected}, field{"extra", format(extra.Interface())}, field{"missing", format(missing.Interface())})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
+	} else if len(extra) > 0 || len(missing) > 0 {
+		return fail(t, messages, "Should be equal in any order", field{"actual", actual}, field{"expected", expected}, field{"extra", extra}, field{"missing", missing})
 	}
 
 	return true
@@ -379,13 +372,9 @@ func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool
 	t.Helper()
 
 	if found, reason := hasPrefix(actual, prefix); reason != valid {
-		formattedActual, formattedPrefix := formatPair(actual, prefix)
-
-		return fail(t, messages, string(reason), field{"actual", formattedActual}, field{"prefix", formattedPrefix})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"prefix", prefix})
 	} else if !found {
-		formattedActual, formattedPrefix := formatPair(actual, prefix)
-
-		return fail(t, messages, "Should have prefix", field{"actual", formattedActual}, field{"prefix", formattedPrefix})
+		return fail(t, messages, "Should have prefix", field{"actual", actual}, field{"prefix", prefix})
 	}
 
 	return true
@@ -399,13 +388,9 @@ func HasSuffix[S Iterable](t Testing, actual, suffix S, messages ...string) bool
 	t.Helper()
 
 	if found, reason := hasSuffix(actual, suffix); reason != valid {
-		formattedActual, formattedSuffix := formatSuffixPair(actual, suffix)
-
-		return fail(t, messages, string(reason), field{"actual", formattedActual}, field{"suffix", formattedSuffix})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"suffix", suffix})
 	} else if !found {
-		formattedActual, formattedSuffix := formatSuffixPair(actual, suffix)
-
-		return fail(t, messages, "Should have suffix", field{"actual", formattedActual}, field{"suffix", formattedSuffix})
+		return fail(t, messages, "Should have suffix", field{"actual", actual}, field{"suffix", suffix})
 	}
 
 	return true
@@ -431,7 +416,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if err != nil {
-		return fail(t, messages, "Should not be error", errorFields(err)...)
+		return fail(t, messages, "Should not be error", field{"error", err})
 	}
 
 	return true
@@ -441,8 +426,8 @@ func NoError(t Testing, err error, messages ...string) bool {
 func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
-	if !errors.Is(err, target) {
-		return fail(t, messages, "Should match error", errorFields(err, field{"target", format(target)})...)
+	if !errorIs(err, target) {
+		return fail(t, messages, "Should match error", field{"error", err}, field{"target", target})
 	}
 
 	return true
@@ -452,8 +437,8 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
-	if errors.Is(err, target) {
-		return fail(t, messages, "Should not match error", errorFields(err, field{"target", format(target)})...)
+	if errorIs(err, target) {
+		return fail(t, messages, "Should not match error", field{"error", err}, field{"target", target})
 	}
 
 	return true
@@ -467,9 +452,9 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 	t.Helper()
 
 	if assignable, reason := errorAs(err, target); reason != valid {
-		return fail(t, messages, string(reason), field{"target", formatType(target)})
+		return fail(t, messages, string(reason), field{"target", target})
 	} else if !assignable {
-		return fail(t, messages, "Should be assignable to target", errorFields(err, field{"target", formatType(target)})...)
+		return fail(t, messages, "Should be assignable to target", field{"error", err}, field{"target", target})
 	}
 
 	return true
@@ -481,10 +466,10 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 func ErrorContains(t Testing, err error, substr string, messages ...string) bool {
 	t.Helper()
 
-	if err == nil {
-		return fail(t, messages, "Should be error", field{"substr", format(substr)})
-	} else if !strings.Contains(err.Error(), substr) {
-		return fail(t, messages, "Should contain substring", errorFields(err, field{"substr", format(substr)})...)
+	if found, reason := errorContains(err, substr); reason != valid {
+		return fail(t, messages, string(reason), field{"substr", substr})
+	} else if !found {
+		return fail(t, messages, "Should contain substring", field{"error", err}, field{"substr", substr})
 	}
 
 	return true
@@ -495,9 +480,9 @@ func Matches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
 	if matched, err := matches(actual, pattern); err != nil {
-		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err.Error()})
+		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err})
 	} else if !matched {
-		return fail(t, messages, "Should match regexp", field{"actual", format(actual)}, field{"pattern", pattern})
+		return fail(t, messages, "Should match regexp", field{"actual", actual}, field{"pattern", pattern})
 	}
 
 	return true
@@ -508,9 +493,9 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
 	if matched, err := matches(actual, pattern); err != nil {
-		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err.Error()})
+		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err})
 	} else if matched {
-		return fail(t, messages, "Should not match regexp", field{"actual", format(actual)}, field{"pattern", pattern})
+		return fail(t, messages, "Should not match regexp", field{"actual", actual}, field{"pattern", pattern})
 	}
 
 	return true
@@ -526,18 +511,18 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 
 	actualJSON, err := decodeJSON(actual)
 	if err != nil {
-		return fail(t, messages, "Should be valid JSON", field{"actual", actual}, field{"err", err.Error()})
+		return fail(t, messages, "Should be valid JSON", field{"actual", actual}, field{"err", err})
 	}
 
 	expectedJSON, err := decodeJSON(expected)
 	if err != nil {
-		return fail(t, messages, "Should be valid JSON", field{"expected", expected}, field{"err", err.Error()})
+		return fail(t, messages, "Should be valid JSON", field{"expected", expected}, field{"err", err})
 	}
 
-	if !reflect.DeepEqual(actualJSON, expectedJSON) {
-		alignedActual, alignedExpected := alignStart(actual, expected)
-
-		return fail(t, messages, "Should be equal JSON", field{"actual", alignedActual}, field{"expected", alignedExpected})
+	if equals, reason := equal(actualJSON, expectedJSON); reason != valid {
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
+	} else if !equals {
+		return fail(t, messages, "Should be equal JSON", field{"actual", actual}, field{"expected", expected})
 	}
 
 	return true
@@ -552,7 +537,7 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 
 	s, err := json.Marshal(actual)
 	if err != nil {
-		return fail(t, messages, "Should be marshalable", field{"actual", format(actual)}, field{"err", err.Error()})
+		return fail(t, messages, "Should be marshalable", field{"actual", actual}, field{"err", err})
 	}
 
 	return EqualJSON(t, string(s), expected, messages...)
@@ -586,11 +571,9 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	if panicked, value, reason := panics(fn); reason != valid {
 		return fail(t, messages, string(reason))
 	} else if !panicked {
-		return fail(t, messages, "Should panic", field{"expected", format(expected)})
+		return fail(t, messages, "Should panic", field{"expected", expected})
 	} else if !panicsWith(value, expected) {
-		formattedActual, formattedExpected := formatPair(value, expected)
-
-		return fail(t, messages, "Should panic with value", field{"actual", formattedActual}, field{"expected", formattedExpected})
+		return fail(t, messages, "Should panic with value", field{"actual", value}, field{"expected", expected})
 	}
 
 	return true
@@ -606,7 +589,7 @@ func NotPanics(t Testing, fn func(), messages ...string) bool {
 	if panicked, value, reason := panics(fn); reason != valid {
 		return fail(t, messages, string(reason))
 	} else if panicked {
-		return fail(t, messages, "Should not panic", field{"value", format(value)})
+		return fail(t, messages, "Should not panic", field{"value", value})
 	}
 
 	return true
