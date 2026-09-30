@@ -10,10 +10,8 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 type validity string
@@ -29,11 +27,7 @@ const (
 	invalidDelta     validity = "Should have non-negative delta"
 	invalidTarget    validity = "Should have pointer to error or interface target"
 	notFunction      validity = "Should not be function"
-)
-
-const (
-	formatLimit = 1024
-	labelWidth  = 8
+	nilFunction      validity = "Should be non-nil function"
 )
 
 const jsonWhitespace = " \t\r\n"
@@ -45,39 +39,30 @@ type field struct {
 	value string
 }
 
-type entry struct {
-	key   reflect.Value
-	value reflect.Value
-}
-
 func fail(t Testing, messages []string, reason string, fields ...field) bool {
 	t.Helper()
 
 	var message strings.Builder
-	message.WriteString(join(messages))
+	message.WriteString(strings.Join(messages, ""))
 	message.WriteString(reason)
 
 	for _, item := range fields {
-		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, truncate(item.value))
+		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, indent(window(item.value, 0)))
 	}
 
 	return Fail(t, message.String())
 }
 
 func errorFields(err error, fields ...field) []field {
-	return append([]field{{"msg", fmt.Sprint(err)}, {"error", formatGoSyntax(err)}}, fields...)
+	return append([]field{{"msg", fmt.Sprint(err)}, {"error", format(err)}}, fields...)
 }
 
-func equal[T Comparable](actual, expected T) bool {
-	return reflect.DeepEqual(actual, expected)
-}
-
-func deepEqual[T Comparable](actual, expected T) (bool, validity) {
+func equal[T Comparable](actual, expected T) (bool, validity) {
 	if isFunction(actual) || isFunction(expected) {
 		return false, notFunction
 	}
 
-	return equal(actual, expected), valid
+	return reflect.DeepEqual(actual, expected), valid
 }
 
 func isFunction(object any) bool {
@@ -165,8 +150,8 @@ func same[T Reference](actual, expected T) (bool, validity) {
 		return false, notReference
 	}
 
-	if !sameType(actual, expected) {
-		return false, valid
+	if valueOfActual.Type() != valueOfExpected.Type() {
+		return false, typeMismatch
 	}
 
 	if valueOfActual.Pointer() != valueOfExpected.Pointer() {
@@ -178,10 +163,6 @@ func same[T Reference](actual, expected T) (bool, validity) {
 	}
 
 	return true, valid
-}
-
-func sameType(actual, expected any) bool {
-	return reflect.TypeOf(actual) == reflect.TypeOf(expected)
 }
 
 func isReference(value reflect.Value) bool {
@@ -241,7 +222,7 @@ func containsValue(object reflect.Value, element any) (bool, validity) {
 	}
 
 	for _, item := range object.Seq2() {
-		if equal(item.Interface(), element) {
+		if reflect.DeepEqual(item.Interface(), element) {
 			return true, valid
 		}
 	}
@@ -301,7 +282,7 @@ func equalAt(object, part reflect.Value, start int) bool {
 		return true
 	}
 
-	return equal(object.Slice(start, end).Interface(), part.Interface())
+	return reflect.DeepEqual(object.Slice(start, end).Interface(), part.Interface())
 }
 
 func unorderedDifference[S Iterable](actual, expected S) (extra, missing reflect.Value, reason validity) {
@@ -363,7 +344,7 @@ func difference(actual, expected reflect.Value) (extra, missing reflect.Value) {
 
 func indexUnmatched(list, element reflect.Value, matched []bool) int {
 	for j := range list.Len() {
-		if !matched[j] && equal(list.Index(j).Interface(), element.Interface()) {
+		if !matched[j] && reflect.DeepEqual(list.Index(j).Interface(), element.Interface()) {
 			return j
 		}
 	}
@@ -411,8 +392,8 @@ func decodeJSON(s string) (any, error) {
 	decoder := json.NewDecoder(strings.NewReader(s))
 	decoder.UseNumber()
 
-	var value any
-	if err := decoder.Decode(&value); err != nil {
+	value, err := decodeJSONValue(decoder)
+	if err != nil {
 		return nil, err
 	}
 
@@ -420,28 +401,68 @@ func decodeJSON(s string) (any, error) {
 		return nil, fmt.Errorf("unexpected %s after top-level value", format(rest))
 	}
 
-	return normalizeJSON(value), nil
+	return value, nil
 }
 
-func normalizeJSON(value any) any {
-	switch v := value.(type) {
-	case json.Number:
-		return normalizeJSONNumber(v)
-	case []any:
-		for i, item := range v {
-			v[i] = normalizeJSON(item)
-		}
-
-		return v
-	case map[string]any:
-		for key, item := range v {
-			v[key] = normalizeJSON(item)
-		}
-
-		return v
-	default:
-		return value
+func decodeJSONValue(decoder *json.Decoder) (any, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
 	}
+
+	switch value := token.(type) {
+	case json.Delim:
+		if value == '{' {
+			return decodeJSONObject(decoder)
+		}
+
+		return decodeJSONArray(decoder)
+	case json.Number:
+		return normalizeJSONNumber(value), nil
+	default:
+		return value, nil
+	}
+}
+
+func decodeJSONObject(decoder *json.Decoder) (map[string]any, error) {
+	object := map[string]any{}
+
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+
+		key := token.(string)
+		if _, ok := object[key]; ok {
+			return nil, fmt.Errorf("duplicate key %s", format(key))
+		}
+
+		if object[key], err = decodeJSONValue(decoder); err != nil {
+			return nil, err
+		}
+	}
+
+	_, err := decoder.Token()
+
+	return object, err
+}
+
+func decodeJSONArray(decoder *json.Decoder) ([]any, error) {
+	array := []any{}
+
+	for decoder.More() {
+		value, err := decodeJSONValue(decoder)
+		if err != nil {
+			return nil, err
+		}
+
+		array = append(array, value)
+	}
+
+	_, err := decoder.Token()
+
+	return array, err
 }
 
 func normalizeJSONNumber(number json.Number) jsonNumber {
@@ -467,7 +488,17 @@ func normalizeJSONNumber(number json.Number) jsonNumber {
 	return jsonNumber(normalized)
 }
 
-func panics(fn func()) (panicked bool, value any) {
+func panics(fn func()) (panicked bool, value any, reason validity) {
+	if fn == nil {
+		return false, nil, nilFunction
+	}
+
+	panicked, value = capturePanic(fn)
+
+	return panicked, value, valid
+}
+
+func capturePanic(fn func()) (panicked bool, value any) {
 	defer func() {
 		if panicked {
 			value = normalizePanic(recover())
@@ -496,7 +527,7 @@ func panicsWith(value, expected any) bool {
 		}
 	}
 
-	return equal(value, expected)
+	return reflect.DeepEqual(value, expected)
 }
 
 func isNil(object any) bool {
@@ -529,130 +560,4 @@ func isZero(object any) bool {
 	}
 
 	return valueOf.IsZero()
-}
-
-func join(messages []string) string {
-	return strings.Join(messages, "")
-}
-
-func format(object any) string {
-	valueOf := reflect.ValueOf(object)
-
-	switch valueOf.Kind() {
-	case reflect.Pointer:
-		if valueOf.IsNil() {
-			return formatValue(object)
-		}
-
-		return fmt.Sprintf("[%p] %s", object, formatValue(valueOf.Elem().Interface()))
-	case reflect.Slice, reflect.Map:
-		return fmt.Sprintf("[%p] %s", object, formatValue(object))
-	default:
-		return formatValue(object)
-	}
-}
-
-func formatValue(object any) string {
-	valueOf := reflect.ValueOf(object)
-
-	switch {
-	case isNumber(valueOf):
-		return fmt.Sprint(object)
-	case isNil(object):
-		return formatGoSyntax(object)
-	case isBytes(valueOf):
-		return fmt.Sprintf("%s(%q)", formatType(object), valueOf.Bytes())
-	case isArrayOrSlice(valueOf):
-		return formatComposite(valueOf.Type(), formatElements(valueOf))
-	case valueOf.Kind() == reflect.Map:
-		return formatComposite(valueOf.Type(), formatEntries(valueOf))
-	default:
-		return formatGoSyntax(object)
-	}
-}
-
-func isNumber(value reflect.Value) bool {
-	switch value.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		return true
-	default:
-		return false
-	}
-}
-
-func isBytes(value reflect.Value) bool {
-	return value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.Uint8
-}
-
-func formatElements(value reflect.Value) []string {
-	items := make([]string, 0, value.Len())
-	for _, item := range value.Seq2() {
-		items = append(items, formatValue(item.Interface()))
-	}
-
-	return items
-}
-
-func formatEntries(value reflect.Value) []string {
-	entries := make([]entry, 0, value.Len())
-	for key, item := range value.Seq2() {
-		entries = append(entries, entry{key, item})
-	}
-
-	slices.SortFunc(entries, func(a, b entry) int {
-		return compareKeys(a.key, b.key)
-	})
-
-	items := make([]string, len(entries))
-	for i, item := range entries {
-		items[i] = formatValue(item.key.Interface()) + ":" + formatValue(item.value.Interface())
-	}
-
-	return items
-}
-
-func compareKeys(a, b reflect.Value) int {
-	switch {
-	case a.CanInt():
-		return cmp.Compare(a.Int(), b.Int())
-	case a.CanUint():
-		return cmp.Compare(a.Uint(), b.Uint())
-	case a.CanFloat():
-		return cmp.Compare(a.Float(), b.Float())
-	case a.Kind() == reflect.String:
-		return strings.Compare(a.String(), b.String())
-	default:
-		return strings.Compare(formatValue(a.Interface()), formatValue(b.Interface()))
-	}
-}
-
-func formatComposite(typ reflect.Type, items []string) string {
-	return typ.String() + "{" + strings.Join(items, ", ") + "}"
-}
-
-func formatType(object any) string {
-	if _, ok := object.([]byte); ok {
-		return "[]byte"
-	}
-
-	return fmt.Sprintf("%T", object)
-}
-
-func formatGoSyntax(object any) string {
-	return fmt.Sprintf("%#v", object)
-}
-
-func truncate(s string) string {
-	if len(s) <= formatLimit {
-		return s
-	}
-
-	end := formatLimit
-	for end > 0 && !utf8.RuneStart(s[end]) {
-		end--
-	}
-
-	return s[:end] + "…"
 }
