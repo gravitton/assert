@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - **Breaking:** `Error`, `NoError` and `ErrorContains` treat a typed nil stored in an `error` as an error, as `err != nil` does
 - **Breaking:** `Equal` and `NotEqual` reject non-nil functions as `Should not be function` instead of treating them as never equal
 - **Breaking:** `EqualJSON` and `JSON` compare numbers as `float64`, as `encoding/json` decodes them, instead of by exact decimal value; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
+- **Breaking:** `Contains` and `NotContains` on a string require the substring to have the string's type, so a named string type and `string` are reported as `Should have element of same type`
 - `Same` reports references of different types as `Should have same type` instead of `Should be same`
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` report a NaN as `Should not be NaN`
 - `ErrorAs` fails on an invalid target as `Should have pointer to error or interface target` instead of panicking
@@ -29,9 +30,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Failure messages: values of different types that print the same, such as `1` and `int64(1)`, and the values in a type mismatch are printed with their types
 - Failure messages: `Matches` quotes the actual string, multi-line text such as an error message or JSON is indented under its label, and all labels are right-aligned
 - Failure messages: values are printed in full instead of being cut at 1024 bytes
+- Failure messages: `NotPanics` and `PanicsWith` print the `Error()` text of a panic value that is an error as `msg`
+- Failure messages: `Equal` and `PanicsWith` add a `hint` when two unequal values of one type print the same, such as NaN
 
 ### Fixed
 - `Panics` passed and `NotPanics` reported a panic for a nil function; all three panic assertions now fail with `Should be non-nil function`
+- `Contains` and `NotContains` accepted an element assignable to the element type but not identical to it, such as `[]int` in a slice of a named `[]int` type, which could never match; it is now reported as `Should have element of same type`
 - `EqualJSON` and `JSON` accepted non-JSON whitespace such as `\f` after the top-level value
 
 ## [v1.5.0](https://github.com/gravitton/assert/compare/v1.4.0...v1.5.0) (2026-09-17)

@@ -402,6 +402,7 @@ func TestContains(t *testing.T) {
 		testContains(t, []any{1, "two", 3}, 3, true)
 		testContains(t, []any{1, "two", 3}, 4, false)
 		testContains(t, []any{1, "two", 3}, "two", true)
+		testContains(t, []error{testSliceErr{"a"}}, testSliceErr{"a"}, true)
 	})
 	t.Run("pointers", func(t *testing.T) {
 		p := ptr(1)
@@ -415,6 +416,11 @@ func TestContains(t *testing.T) {
 	t.Run("element type", func(t *testing.T) {
 		testContainsInvalid(t, []testType{"a"}, "a")
 		testContainsInvalid(t, []string{"a"}, testType("a"))
+		testContainsInvalid(t, []testSliceErr{{"a"}}, []string{"a"})
+		testContainsInvalid(t, []<-chan int{bufferedChan(0)}, bufferedChan(0))
+		testContainsInvalid(t, testType("Hello"), "e")
+		testContainsInvalid(t, "Hello", testType("e"))
+		testContainsInvalid[string, any](t, "Hello", nil)
 		testContainsInvalid(t, "Hello", 2)
 		testContainsInvalid(t, "<int Value>", 2)
 		testContainsInvalid(t, "true", true)

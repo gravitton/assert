@@ -139,6 +139,7 @@ func ExampleEqual() {
 	// Should be equal
 	//   actual: NaN
 	// expected: NaN
+	//     hint: values print the same but are not deeply equal
 }
 
 func ExampleNotEqual() {
@@ -269,6 +270,7 @@ func ExampleContains() {
 	assert.Contains(t, []int{1, 2}, 3)
 	assert.Contains(t, "abc", "x")
 	assert.Contains(t, []int64{1, 2}, 1)
+	assert.Contains(t, json.Number("12"), "1")
 	assert.Contains(t, 5, 2)
 
 	// Output:
@@ -281,6 +283,9 @@ func ExampleContains() {
 	// Should have element of same type
 	//   actual: []int64{1, 2}
 	//  element: int(1)
+	// Should have element of same type
+	//   actual: json.Number("12")
+	//  element: string("1")
 	// Should be iterable
 	//   actual: 5
 	//  element: 2
@@ -495,6 +500,10 @@ func ExamplePanicsWith() {
 	assert.PanicsWith(t, func() {
 		panic(io.EOF)
 	}, io.ErrUnexpectedEOF)
+	assert.PanicsWith(t, func() {
+		zero := 0
+		_ = 1 / zero
+	}, "integer divide by zero")
 
 	// Output:
 	// Should panic with value
@@ -506,8 +515,13 @@ func ExamplePanicsWith() {
 	//   actual: int(1)
 	// expected: int64(1)
 	// Should panic with value
+	//      msg: EOF
 	//   actual: &errors.errorString{s:"EOF"}
 	// expected: &errors.errorString{s:"unexpected EOF"}
+	// Should panic with value
+	//      msg: runtime error: integer divide by zero
+	//   actual: runtime.errorString("integer divide by zero")
+	// expected: string("integer divide by zero")
 }
 
 func ExampleNotPanics() {
@@ -517,10 +531,17 @@ func ExampleNotPanics() {
 	assert.NotPanics(t, func() {
 		panic(nil)
 	})
+	assert.NotPanics(t, func() {
+		zero := 0
+		_ = 1 / zero
+	})
 
 	// Output:
 	// Should not panic
 	//    value: "boom"
 	// Should not panic
 	//    value: <nil>
+	// Should not panic
+	//      msg: runtime error: integer divide by zero
+	//    value: "integer divide by zero"
 }

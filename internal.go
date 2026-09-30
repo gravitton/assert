@@ -171,7 +171,7 @@ func contains(object, element any) (bool, validity) {
 
 	switch value.Kind() {
 	case reflect.String:
-		return containsSubstring(value, reflect.ValueOf(element))
+		return containsSubstring(value, element)
 	case reflect.Array, reflect.Slice, reflect.Map:
 		return containsElement(value, element)
 	default:
@@ -179,16 +179,16 @@ func contains(object, element any) (bool, validity) {
 	}
 }
 
-func containsSubstring(value, element reflect.Value) (bool, validity) {
-	if element.Kind() != reflect.String {
+func containsSubstring(value reflect.Value, element any) (bool, validity) {
+	if reflect.TypeOf(element) != value.Type() {
 		return false, elementMismatch
 	}
 
-	return strings.Contains(value.String(), element.String()), valid
+	return strings.Contains(value.String(), reflect.ValueOf(element).String()), valid
 }
 
 func containsElement(value reflect.Value, element any) (bool, validity) {
-	if !isAssignable(reflect.TypeOf(element), value.Type().Elem()) {
+	if !isElementOf(reflect.TypeOf(element), value.Type().Elem()) {
 		return false, elementMismatch
 	}
 
@@ -197,12 +197,12 @@ func containsElement(value reflect.Value, element any) (bool, validity) {
 	}), valid
 }
 
-func isAssignable(from, to reflect.Type) bool {
-	if from == nil {
-		return to.Kind() == reflect.Interface
+func isElementOf(elementType, itemType reflect.Type) bool {
+	if itemType.Kind() != reflect.Interface {
+		return elementType == itemType
 	}
 
-	return from.AssignableTo(to)
+	return elementType == nil || elementType.AssignableTo(itemType)
 }
 
 func indirectArray(value reflect.Value) reflect.Value {

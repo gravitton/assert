@@ -170,11 +170,12 @@ concatenated and prepended to the failure message. Use them as a prefix, `"user.
 comparison. Pointers, slices, maps, channels, functions and `unsafe.Pointer` all qualify. `Error`, `NoError` and
 `ErrorContains` do not: a `(*MyErr)(nil)` returned as an `error` is an error, exactly as `if err != nil` sees it.
 
-**Equality:** `Equal` uses `reflect.DeepEqual`: pointers are compared by the values they reference, and a typed nil
-stored in an interface is not equal to an untyped `nil`. Non-nil functions are never deeply equal, so `Equal` and
-`NotEqual` reject them as invalid arguments; use `Nil` or `NotNil` instead. `Same` compares identity: same type and
-address, and for slices also the same length and capacity. Two nil references of the same type are the same. Pointers
-to zero-size values and slices with zero capacity may share an address even when allocated separately.
+**Equality:** `Equal` uses `reflect.DeepEqual`: pointers are compared by the values they reference, a typed nil stored
+in an interface is not equal to an untyped `nil`, and NaN is not equal to itself, as with `==`. Non-nil functions are
+never deeply equal, so `Equal` and `NotEqual` reject them as invalid arguments; use `Nil` or `NotNil` instead. `Same`
+compares identity: same type and address, and for slices also the same length and capacity. Two nil references of the
+same type are the same. Pointers to zero-size values and slices with zero capacity may share an address even when
+allocated separately.
 
 **Numbers:** `EqualDelta` compares integer types exactly, without a detour through `float64`, and fails on a negative
 or NaN delta. NaN is only equal to NaN. Its failure shows the delta and the actual difference. `Greater`, `Less` and
@@ -183,8 +184,9 @@ friends accept any `cmp.Ordered` type, strings included, and report a NaN on eit
 **Length and contents:** String length is measured in bytes, not runes. A pointer to an array works like the array,
 except that `Contains` and `EqualUnordered` reject a nil one. `HasPrefix` and `HasSuffix` take strings and slices only,
 since two arrays of one type always have the same length. **`Contains` on a map searches the values, not the keys**,
-unlike testify. The element must be assignable to the container's element type; a mismatch is reported as a failure, not
-silently `false`. An untyped constant defaults to `int`, so write `Contains(t, ids, int64(1))` for an `[]int64`.
+unlike testify. The element must have the container's element type, or be assignable to it when that is an interface
+type, and a substring must have the same type as the string; a mismatch is reported as a failure, not silently `false`.
+An untyped constant takes its default type, so write `Contains(t, ids, int64(1))` for an `[]int64`.
 `EqualUnordered`, `HasPrefix` and `HasSuffix` require both arguments to have the same type, so a slice and an array, or
 a string and a named string type, are reported as `Should have same type`. `EqualUnordered` treats a nil slice and an
 empty one as equal, unlike `Equal`. `Zero` does the opposite of `Empty` there: a non-nil empty slice or map is not zero.
@@ -207,10 +209,12 @@ is an `error`. All three fail on a nil function.
 
 **Output:** Values are printed with `%#v`, with two exceptions: a number prints in decimal or through its `String`
 method, so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`, and a pointer prints as `&` followed by the value it
-points to. Nested values print exactly as `%#v` prints them. Addresses are printed only by `Same` and `NotSame`. When
-two values of different types print the same, or a check fails on a type mismatch, each value is printed with its type,
-e.g. `int(1)` and `int64(1)`. Errors also print their `Error()` text as `msg`; regexp patterns, JSON and error details
-print as plain text, and multi-line text is indented under its label. Values are printed in full.
+points to. Everything else prints exactly as `%#v` prints it, so nested pointers, channels and functions show their
+addresses. When two values of different types print the same, or a check fails on a type mismatch, each value is printed
+with its type, e.g. `int(1)` and `int64(1)`. When `Equal` or `PanicsWith` fails on two values of one type that print the
+same, such as NaN or a `time.Time` differing only in its monotonic clock, a `hint` line says so. Errors, including panic
+values that are errors, also print their `Error()` text as `msg`; regexp patterns, JSON and error details print as plain
+text, and multi-line text is indented under its label. Values are printed in full.
 
 ## Custom assertions
 

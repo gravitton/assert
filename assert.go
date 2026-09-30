@@ -152,17 +152,16 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 //
 // Equality is determined with reflect.DeepEqual: pointers are compared by the
 // values they reference. A typed nil stored in an interface is not equal to an
-// untyped nil; use [Nil] for that. Non-nil functions are never equal and fail
-// as an invalid argument; use [Nil] or [NotNil] for them.
+// untyped nil; use [Nil] for that. NaN is not equal to itself, as with ==.
+// Non-nil functions are never equal and fail as an invalid argument; use [Nil]
+// or [NotNil] for them.
 func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if equals, reason := equal(actual, expected); reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
 	} else if !equals {
-		distinctActual, distinctExpected := distinct(actual, expected)
-
-		return fail(t, messages, "Should be equal", field{"actual", distinctActual}, field{"expected", distinctExpected})
+		return fail(t, messages, "Should be equal", comparisonFields(actual, expected)...)
 	}
 
 	return true
@@ -322,7 +321,9 @@ func NotEmpty[S Iterable](t Testing, actual S, messages ...string) bool {
 
 // Contains asserts that actual contains given element.
 //
-// Works with strings, arrays, array pointers, slices and map values.
+// Works with strings, arrays, array pointers, slices and map values. The element
+// must have the element type of actual, or be assignable to it when that is an
+// interface type. A substring must have the same type as the string.
 func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
@@ -339,7 +340,9 @@ func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages
 
 // NotContains asserts that actual does NOT contain given element.
 //
-// Works with strings, arrays, array pointers, slices and map values.
+// Works with strings, arrays, array pointers, slices and map values. The element
+// must have the element type of actual, or be assignable to it when that is an
+// interface type. A substring must have the same type as the string.
 func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
@@ -415,7 +418,7 @@ func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if err == nil {
-		return fail(t, messages, "Should be error")
+		return fail(t, messages, string(notError))
 	}
 
 	return true
@@ -585,9 +588,7 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	} else if !panicked {
 		return fail(t, messages, "Should panic", field{"expected", expected})
 	} else if !panicsWith(value, expected) {
-		distinctActual, distinctExpected := distinct(value, expected)
-
-		return fail(t, messages, "Should panic with value", field{"actual", distinctActual}, field{"expected", distinctExpected})
+		return fail(t, messages, "Should panic with value", panicFields(value, comparisonFields(value, expected)...)...)
 	}
 
 	return true
@@ -603,7 +604,7 @@ func NotPanics(t Testing, fn func(), messages ...string) bool {
 	if panicked, value, reason := panics(fn); reason != valid {
 		return fail(t, messages, string(reason))
 	} else if panicked {
-		return fail(t, messages, "Should not panic", field{"value", value})
+		return fail(t, messages, "Should not panic", panicFields(value, field{"value", value})...)
 	}
 
 	return true

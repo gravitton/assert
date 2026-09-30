@@ -58,12 +58,23 @@ func errorText(err error) text {
 	return text(fmt.Sprint(err))
 }
 
-func distinct(actual, expected any) (any, any) {
-	if format(actual) != format(expected) || reflect.TypeOf(actual) == reflect.TypeOf(expected) {
-		return actual, expected
+func panicFields(value any, fields ...field) []field {
+	if err, ok := value.(error); ok {
+		return append([]field{{"msg", errorText(err)}}, fields...)
 	}
 
-	return typed(actual), typed(expected)
+	return fields
+}
+
+func comparisonFields(actual, expected any) []field {
+	switch {
+	case format(actual) != format(expected):
+		return []field{{"actual", actual}, {"expected", expected}}
+	case reflect.TypeOf(actual) != reflect.TypeOf(expected):
+		return []field{{"actual", typed(actual)}, {"expected", typed(expected)}}
+	default:
+		return []field{{"actual", actual}, {"expected", expected}, {"hint", text("values print the same but are not deeply equal")}}
+	}
 }
 
 func typed(object any) text {
