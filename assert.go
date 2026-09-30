@@ -1,6 +1,8 @@
 package assert
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Testing is an interface wrapper around *testing.T
 type Testing interface {
