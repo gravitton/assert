@@ -24,10 +24,12 @@ Simple and lightweight testing assertion library for Go
 ## Features
 
 - **Zero dependencies** – standard library only.
-- **Generic** – type-safe arguments, no `interface{}` juggling; named types and `time.Duration` just work.
-- **Readable failures** – aligned `actual` / `expected` output, pointing at the call site in your test.
+- **Generic** – both sides of a comparison share one type, so untyped constants take the type of the value under test;
+  named types and `time.Duration` just work.
+- **Readable failures** – aligned `actual` / `expected` output, pointing at the call site in your test; every
+  assertion's example on pkg.go.dev shows its failure messages.
 - **Composable** – every assertion returns `bool` and takes an optional message prefix, so building your own is trivial.
-- **Exact** – integers compared without float rounding, JSON numbers compared by exact decimal value, NaN handled explicitly.
+- **Exact** – integers compared without float rounding, NaN handled explicitly.
 - **Works with anything** that has `Helper()` and `Errorf()`: `*testing.T`, `*testing.B`, `testing.TB`, or your own.
 
 ## Installation
@@ -175,32 +177,40 @@ address, and for slices also the same length and capacity. Two nil references of
 to zero-size values and slices with zero capacity may share an address even when allocated separately.
 
 **Numbers:** `EqualDelta` compares integer types exactly, without a detour through `float64`, and fails on a negative
-or NaN delta. NaN is only equal to NaN. Its failure shows the delta and the actual difference. `Greater`, `Less` and friends accept any `cmp.Ordered` type, strings
-included, and fail when either side is NaN.
+or NaN delta. NaN is only equal to NaN. Its failure shows the delta and the actual difference. `Greater`, `Less` and
+friends accept any `cmp.Ordered` type, strings included, and report a NaN on either side as `Should not be NaN`.
 
 **Length and contents:** String length is measured in bytes, not runes. A pointer to an array works like the array,
 except that `Contains` and `EqualUnordered` reject a nil one. `HasPrefix` and `HasSuffix` take strings and slices only,
 since two arrays of one type always have the same length. **`Contains` on a map searches the values, not the keys**,
 unlike testify. The element must be assignable to the container's element type; a mismatch is reported as a failure, not
 silently `false`. An untyped constant defaults to `int`, so write `Contains(t, ids, int64(1))` for an `[]int64`.
-`EqualUnordered` treats a nil slice and an empty one as equal, unlike `Equal`. `Zero` does the opposite of `Empty`
-there: a non-nil empty slice or map is not zero.
+`EqualUnordered`, `HasPrefix` and `HasSuffix` require both arguments to have the same type, so a slice and an array, or
+a string and a named string type, are reported as `Should have same type`. `EqualUnordered` treats a nil slice and an
+empty one as equal, unlike `Equal`. `Zero` does the opposite of `Empty` there: a non-nil empty slice or map is not zero.
 
 **Zero:** `Zero` and `NotZero` call the value's own `IsZero() bool` method when it has one, so a zero `time.Time` in
-any location is zero. A pointer is zero only when it is nil, even when it points to a zero value, unlike
-`encoding/json`'s `omitzero`.
+any location is zero. A method promoted from an embedded field counts too, so a struct embedding `time.Time` is zero
+whenever that time is, whatever its other fields hold. A pointer is zero only when it is nil, even when it points to a
+zero value, unlike `encoding/json`'s `omitzero`.
 
-**JSON:** `EqualJSON` and `JSON` compare structure, not text. Key order and whitespace are ignored, numbers are compared
-by exact decimal value, so `1.0` equals `1`, `1e2` equals `100`, and integers beyond 2^53 and exponents of any size
-keep their precision.
+**JSON:** `EqualJSON` and `JSON` compare structure, not text. Both sides are decoded as `encoding/json` decodes into
+`any`, so key order and whitespace are ignored and the last of duplicate keys wins. Numbers become `float64`: `1.0`
+equals `1` and `1e2` equals `100`, but integers beyond 2^53 may compare equal when they differ, and numbers beyond the
+`float64` range are reported as invalid JSON. To compare such numbers exactly, decode into a struct and use `Equal`.
+`JSON` marshals its argument with `json.Marshal`, so a `[]byte` becomes a base64 string; compare JSON held in bytes with
+`EqualJSON(t, string(b), expected)`.
 
 **Panics:** `Panics`, `PanicsWith` and `NotPanics` recognise `panic(nil)` and report its value as `nil` whatever the
 `GODEBUG=panicnil` setting. `PanicsWith` matches with `reflect.DeepEqual`, or with `errors.Is` when the expected value
-is an `error`.
+is an `error`. All three fail on a nil function.
 
-**Output:** Values are printed in Go syntax, except numbers, which print in decimal or through their `String` method,
-so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`, also inside arrays, slices and maps. Byte slices print as
-`[]byte("…")`, and map keys are sorted. Values printed in failures are cut at 1024 bytes.
+**Output:** Values are printed with `%#v`, with two exceptions: a number prints in decimal or through its `String`
+method, so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`, and a pointer prints as `&` followed by the value it
+points to. Nested values print exactly as `%#v` prints them. Addresses are printed only by `Same` and `NotSame`. When
+two values of different types print the same, or a check fails on a type mismatch, each value is printed with its type,
+e.g. `int(1)` and `int64(1)`. Errors also print their `Error()` text as `msg`; regexp patterns, JSON and error details
+print as plain text, and multi-line text is indented under its label. Values are printed in full.
 
 ## Custom assertions
 
