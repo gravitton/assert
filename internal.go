@@ -23,13 +23,24 @@ const (
 	typeMismatch     validity = "Should have same type"
 	notNumber        validity = "Should not be NaN"
 	invalidDelta     validity = "Should have non-negative delta"
+	notFunction      validity = "Should not be function"
 	notError         validity = "Should be error"
 	invalidTarget    validity = "Should have pointer to error or interface target"
 	nilFunction      validity = "Should be non-nil function"
 )
 
 func equal(actual, expected any) (bool, validity) {
+	if isFunction(actual) || isFunction(expected) {
+		return false, notFunction
+	}
+
 	return reflect.DeepEqual(actual, expected), valid
+}
+
+func isFunction(object any) bool {
+	value := reflect.ValueOf(object)
+
+	return value.Kind() == reflect.Func && !value.IsNil()
 }
 
 func equalDelta[T Numeric](actual, expected, delta T) (bool, validity) {
@@ -111,14 +122,18 @@ func isReference(value reflect.Value) bool {
 }
 
 func length(object any) (int, validity) {
-	value := reflect.Indirect(reflect.ValueOf(object))
+	value := reflect.ValueOf(object)
 
 	switch value.Kind() {
 	case reflect.String, reflect.Array, reflect.Slice, reflect.Map, reflect.Chan:
 		return value.Len(), valid
-	default:
-		return 0, notIterable
+	case reflect.Pointer:
+		if value.Type().Elem().Kind() == reflect.Array {
+			return value.Len(), valid
+		}
 	}
+
+	return 0, notIterable
 }
 
 func contains(object, element any) (bool, validity) {
