@@ -179,6 +179,8 @@ func ExampleEqualDelta() {
 	//    delta: 1
 	//     diff: 255
 	// Should have non-negative delta
+	//   actual: 1
+	// expected: 2
 	//    delta: -1
 }
 
@@ -367,14 +369,14 @@ func ExampleNoError() {
 	// Output:
 	// Should not be error
 	//      msg: boom
-	//    error: &errors.errorString{s:"boom"}
+	//    error: *errors.errorString
 	// Should not be error
 	//      msg: line 1
 	//           line 2
-	//    error: &errors.errorString{s:"line 1\nline 2"}
+	//    error: *errors.errorString
 	// Should not be error
 	//      msg: <nil>
-	//    error: (*fs.PathError)(nil)
+	//    error: *fs.PathError
 }
 
 func ExampleErrorIs() {
@@ -383,7 +385,7 @@ func ExampleErrorIs() {
 	// Output:
 	// Should match error
 	//      msg: boom
-	//    error: &errors.errorString{s:"boom"}
+	//    error: *errors.errorString
 	//   target: &errors.errorString{s:"EOF"}
 }
 
@@ -393,7 +395,7 @@ func ExampleNotErrorIs() {
 	// Output:
 	// Should not match error
 	//      msg: EOF
-	//    error: &errors.errorString{s:"EOF"}
+	//    error: *errors.errorString
 	//   target: &errors.errorString{s:"EOF"}
 }
 
@@ -405,7 +407,7 @@ func ExampleErrorAs() {
 	// Output:
 	// Should be assignable to target
 	//      msg: boom
-	//    error: &errors.errorString{s:"boom"}
+	//    error: *errors.errorString
 	//   target: **fs.PathError
 	// Should have pointer to error or interface target
 	//   target: *fs.PathError
@@ -418,7 +420,7 @@ func ExampleErrorContains() {
 	// Output:
 	// Should contain substring
 	//      msg: boom
-	//    error: &errors.errorString{s:"boom"}
+	//    error: *errors.errorString
 	//   substr: "bang"
 	// Should be error
 	//   substr: "bang"

@@ -36,14 +36,21 @@ func fail(t Testing, messages []string, reason string, fields ...field) bool {
 func format(object any) string {
 	value := reflect.ValueOf(object)
 
-	switch {
-	case value.CanInt() || value.CanUint() || value.CanFloat():
-		return fmt.Sprint(object)
-	case value.Kind() == reflect.Pointer && !value.IsNil():
-		return "&" + format(value.Elem().Interface())
-	default:
-		return fmt.Sprintf("%#v", object)
+	if value.Kind() == reflect.Pointer && !value.IsNil() {
+		return "&" + formatValue(value.Elem().Interface())
 	}
+
+	return formatValue(object)
+}
+
+func formatValue(object any) string {
+	value := reflect.ValueOf(object)
+
+	if value.CanInt() || value.CanUint() || value.CanFloat() {
+		return fmt.Sprint(object)
+	}
+
+	return fmt.Sprintf("%#v", object)
 }
 
 func indent(s string) string {
@@ -51,7 +58,7 @@ func indent(s string) string {
 }
 
 func errorFields(err error, fields ...field) []field {
-	return append([]field{{"msg", errorText(err)}, {"error", err}}, fields...)
+	return append([]field{{"msg", errorText(err)}, {"error", typeName(err)}}, fields...)
 }
 
 func errorText(err error) text {

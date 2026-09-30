@@ -164,7 +164,9 @@ Full reference: [pkg.go.dev][link-go-dev-reference].
 with `t.Errorf`, so the test continues; return early yourself when a later assertion depends on an earlier one.
 
 **Messages:** Every assertion except `Fail` and `Failf` accepts a trailing `messages ...string`. The strings are
-concatenated and prepended to the failure message. Use them as a prefix, `"user.Name: "`, rather than a sentence.
+concatenated and prepended to the failure message. Use them as a prefix, `"user.Name: "`, rather than a sentence. No
+separator is inserted, neither between the strings nor before the failure message, so each carries its own: a nested
+helper appends `"Min."`, the leaf appends `"X: "`, and the failure reads `Min.X: Should be equal`.
 
 **Nil:** `Nil` and `NotNil` treat a typed nil stored in their `any` argument as nil, unlike a plain `== nil`
 comparison. Pointers, slices, maps, channels, functions and `unsafe.Pointer` all qualify. `Error`, `NoError` and
@@ -209,11 +211,12 @@ is an `error`. All three fail on a nil function.
 
 **Output:** Values are printed with `%#v`, with two exceptions: a number prints in decimal or through its `String`
 method, so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`, and a pointer prints as `&` followed by the value it
-points to. Everything else prints exactly as `%#v` prints it, so nested pointers, channels and functions show their
-addresses. When two values of different types print the same, or a check fails on a type mismatch, each value is printed
-with its type, e.g. `int(1)` and `int64(1)`. When `Equal` or `PanicsWith` fails on two values of one type that print the
-same, such as NaN or a `time.Time` differing only in its monotonic clock, a `hint` line says so. Errors, including panic
-values that are errors, also print their `Error()` text as `msg`; regexp patterns, JSON and error details print as plain
+points to, one level deep. Everything else prints exactly as `%#v` prints it, so a pointer to a pointer, and pointers,
+channels and functions nested in a value show their addresses. When two values of different types print the same, or a
+check fails on a type mismatch, each value is printed with its type, e.g. `int(1)` and `int64(1)`. When `Equal` or
+`PanicsWith` fails on two values of one type that print the same, such as NaN or a `time.Time` differing only in its
+monotonic clock, a `hint` line says so. The error under test prints its `Error()` text as `msg` and its type as `error`,
+and a panic value that is an error also prints its text as `msg`; regexp patterns, JSON and error details print as plain
 text, and multi-line text is indented under its label. Values are printed in full.
 
 ## Custom assertions

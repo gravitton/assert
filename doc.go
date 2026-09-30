@@ -23,10 +23,12 @@
 //
 // All assertions accept an optional trailing messages ...string argument. The strings
 // are concatenated and prepended to the failure output, making it easy to add context
-// or build composable helpers:
+// or build composable helpers. No separator is inserted, neither between the strings
+// nor before the failure message, so each string carries its own: a nested helper
+// appends "Min." and the leaf appends "X: ".
 //
-//	assert.Equal(t, actual.X, expected.X, "point.X: ")
-//	// point.X: Should be equal
+//	assert.Equal(t, actual.X, expected.X, "Min.", "X: ")
+//	// Min.X: Should be equal
 //	//   actual: 1
 //	// expected: 2
 //

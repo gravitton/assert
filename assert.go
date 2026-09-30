@@ -193,7 +193,7 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	t.Helper()
 
 	if within, reason := equalDelta(actual, expected, delta); reason != valid {
-		return fail(t, messages, string(reason), field{"delta", delta})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected}, field{"delta", delta})
 	} else if !within {
 		return fail(t, messages, "Should be equal in delta", field{"actual", actual}, field{"expected", expected}, field{"delta", delta}, field{"diff", distance(actual, expected)})
 	}
@@ -208,7 +208,7 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 	t.Helper()
 
 	if within, reason := equalDelta(actual, expected, delta); reason != valid {
-		return fail(t, messages, string(reason), field{"delta", delta})
+		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected}, field{"delta", delta})
 	} else if within {
 		return fail(t, messages, "Should not be equal in delta", field{"actual", actual}, field{"expected", expected}, field{"delta", delta}, field{"diff", distance(actual, expected)})
 	}

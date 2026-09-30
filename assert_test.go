@@ -742,8 +742,12 @@ func TestNotPanics(t *testing.T) {
 
 func TestMessagesWithAddresses(t *testing.T) {
 	x := 1
+	p := &x
 	s := []int{1, 2}
 	c := make(chan int)
+
+	var cycle selfPointer
+	cycle = &cycle
 
 	testMessages(t, []messageCase{
 		{"Same", func(t Testing) bool { return Same(t, s, s[:1]) }, fmt.Sprintf("Should be same\n  actual: [%p] []int{1, 2}\nexpected: [%p] []int{1}", s, s)},
@@ -751,6 +755,8 @@ func TestMessagesWithAddresses(t *testing.T) {
 		{"Equal function", func(t Testing) bool { return Equal(t, ptr, ptr) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
 		{"NotEqual function", func(t Testing) bool { return NotEqual(t, ptr, nil) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
 		{"JSON", func(t Testing) bool { return JSON(t, c, "1") }, fmt.Sprintf("Should be marshalable\n  actual: (chan int)(%p)", c)},
+		{"nested pointer", func(t Testing) bool { return Equal(t, &p, nil) }, fmt.Sprintf("Should be equal\n  actual: &(*int)(%p)\nexpected: (**int)(nil)", p)},
+		{"pointer cycle", func(t Testing) bool { return Nil(t, cycle) }, fmt.Sprintf("Should be nil\n  actual: &(assert.selfPointer)(%p)", cycle)},
 	})
 }
 
@@ -761,6 +767,8 @@ type messageCase struct {
 }
 
 type testType string
+
+type selfPointer *selfPointer
 
 type testStruct struct {
 	a int

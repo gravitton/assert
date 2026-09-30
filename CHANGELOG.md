@@ -24,14 +24,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` report a NaN as `Should not be NaN`
 - `ErrorAs` fails on an invalid target as `Should have pointer to error or interface target` instead of panicking
 - The value under test is named `actual` in every signature and failure message, and the second argument of `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` is named `bound`; `Length` prints the measured length as `length`
-- Failure messages: `EqualDelta` and `NotEqualDelta` show the delta and the actual difference
+- Failure messages: `EqualDelta` and `NotEqualDelta` show the delta and the actual difference, and an invalid delta with `actual` and `expected`
 - Failure messages: a number prints in decimal or through its `String` method, so `uint(5)` prints as `5` and a `time.Duration` as `1.5s`
-- Failure messages: a pointer prints as `&` followed by its value; addresses are printed only by `Same` and `NotSame`
+- Failure messages: a pointer prints as `&` followed by the value it points to, one level deep
+- Failure messages: the error under test prints its type as `error` instead of its `%#v` value, which showed the addresses inside a wrapped error
 - Failure messages: values of different types that print the same, such as `1` and `int64(1)`, and the values in a type mismatch are printed with their types
 - Failure messages: `Matches` quotes the actual string, multi-line text such as an error message or JSON is indented under its label, and all labels are right-aligned
 - Failure messages: values are printed in full instead of being cut at 1024 bytes
 - Failure messages: `NotPanics` and `PanicsWith` print the `Error()` text of a panic value that is an error as `msg`
 - Failure messages: `Equal` and `PanicsWith` add a `hint` when two unequal values of one type print the same, such as NaN
+- Documented that the `messages` strings are concatenated with no separator, neither between them nor before the failure message
 
 ### Fixed
 - `Panics` passed and `NotPanics` reported a panic for a nil function; all three panic assertions now fail with `Should be non-nil function`

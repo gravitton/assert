@@ -192,9 +192,13 @@ func containsElement(value reflect.Value, element any) (bool, validity) {
 		return false, elementMismatch
 	}
 
-	return slices.ContainsFunc(elements(value), func(item reflect.Value) bool {
-		return reflect.DeepEqual(item.Interface(), element)
-	}), valid
+	for _, item := range value.Seq2() {
+		if reflect.DeepEqual(item.Interface(), element) {
+			return true, valid
+		}
+	}
+
+	return false, valid
 }
 
 func isElementOf(elementType, itemType reflect.Type) bool {
