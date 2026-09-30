@@ -123,7 +123,7 @@ func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
 	if identical, reason := same(actual, expected); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"expected", typeOf(expected)})
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"expected", typed(expected)})
 	} else if !identical {
 		return fail(t, messages, "Should be same", field{"actual", identity(actual)}, field{"expected", identity(expected)})
 	}
@@ -140,7 +140,7 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 	t.Helper()
 
 	if identical, reason := same(actual, expected); reason == notReference {
-		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"expected", typeOf(expected)})
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"expected", typed(expected)})
 	} else if identical {
 		return fail(t, messages, "Should not be same", field{"actual", identity(actual)})
 	}
@@ -326,7 +326,9 @@ func NotEmpty[S Iterable](t Testing, actual S, messages ...string) bool {
 func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
-	if found, reason := contains(actual, element); reason != valid {
+	if found, reason := contains(actual, element); reason == elementMismatch {
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"element", typed(element)})
+	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"element", element})
 	} else if !found {
 		return fail(t, messages, "Should contain element", field{"actual", actual}, field{"element", element})
@@ -341,7 +343,9 @@ func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages
 func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
-	if found, reason := contains(actual, element); reason != valid {
+	if found, reason := contains(actual, element); reason == elementMismatch {
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"element", typed(element)})
+	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"element", element})
 	} else if found {
 		return fail(t, messages, "Should not contain element", field{"actual", actual}, field{"element", element})
@@ -357,7 +361,9 @@ func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messa
 func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...string) bool {
 	t.Helper()
 
-	if extra, missing, reason := unorderedDifference(actual, expected); reason != valid {
+	if extra, missing, reason := unorderedDifference(actual, expected); reason == typeMismatch {
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"expected", typed(expected)})
+	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
 	} else if extra.Len() > 0 || missing.Len() > 0 {
 		return fail(t, messages, "Should be equal in any order", field{"actual", actual}, field{"expected", expected}, field{"extra", extra.Interface()}, field{"missing", missing.Interface()})
@@ -374,7 +380,7 @@ func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool
 	t.Helper()
 
 	if found, reason := hasPrefix(actual, prefix); reason == typeMismatch {
-		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"prefix", typeOf(prefix)})
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"prefix", typed(prefix)})
 	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"prefix", prefix})
 	} else if !found {
@@ -392,7 +398,7 @@ func HasSuffix[S Iterable](t Testing, actual, suffix S, messages ...string) bool
 	t.Helper()
 
 	if found, reason := hasSuffix(actual, suffix); reason == typeMismatch {
-		return fail(t, messages, string(reason), field{"actual", typeOf(actual)}, field{"suffix", typeOf(suffix)})
+		return fail(t, messages, string(reason), field{"actual", typed(actual)}, field{"suffix", typed(suffix)})
 	} else if reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"suffix", suffix})
 	} else if !found {
@@ -422,7 +428,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
 	if err != nil {
-		return fail(t, messages, "Should not be error", field{"error", err})
+		return fail(t, messages, "Should not be error", errorFields(err)...)
 	}
 
 	return true
@@ -433,7 +439,7 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if !errorIs(err, target) {
-		return fail(t, messages, "Should match error", field{"error", err}, field{"target", target})
+		return fail(t, messages, "Should match error", errorFields(err, field{"target", target})...)
 	}
 
 	return true
@@ -444,7 +450,7 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
 	if errorIs(err, target) {
-		return fail(t, messages, "Should not match error", field{"error", err}, field{"target", target})
+		return fail(t, messages, "Should not match error", errorFields(err, field{"target", target})...)
 	}
 
 	return true
@@ -458,9 +464,9 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 	t.Helper()
 
 	if assignable, reason := errorAs(err, target); reason != valid {
-		return fail(t, messages, string(reason), field{"target", target})
+		return fail(t, messages, string(reason), field{"target", typeName(target)})
 	} else if !assignable {
-		return fail(t, messages, "Should be assignable to target", field{"error", err}, field{"target", target})
+		return fail(t, messages, "Should be assignable to target", errorFields(err, field{"target", typeName(target)})...)
 	}
 
 	return true
@@ -475,7 +481,7 @@ func ErrorContains(t Testing, err error, substr string, messages ...string) bool
 	if found, reason := errorContains(err, substr); reason != valid {
 		return fail(t, messages, string(reason), field{"substr", substr})
 	} else if !found {
-		return fail(t, messages, "Should contain substring", field{"error", err}, field{"substr", substr})
+		return fail(t, messages, "Should contain substring", errorFields(err, field{"substr", substr})...)
 	}
 
 	return true
@@ -486,9 +492,9 @@ func Matches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
 	if matched, err := matches(actual, pattern); err != nil {
-		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err})
+		return fail(t, messages, "Should be valid regexp", field{"pattern", text(pattern)}, field{"err", errorText(err)})
 	} else if !matched {
-		return fail(t, messages, "Should match regexp", field{"actual", actual}, field{"pattern", pattern})
+		return fail(t, messages, "Should match regexp", field{"actual", actual}, field{"pattern", text(pattern)})
 	}
 
 	return true
@@ -499,9 +505,9 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
 	if matched, err := matches(actual, pattern); err != nil {
-		return fail(t, messages, "Should be valid regexp", field{"pattern", pattern}, field{"err", err})
+		return fail(t, messages, "Should be valid regexp", field{"pattern", text(pattern)}, field{"err", errorText(err)})
 	} else if matched {
-		return fail(t, messages, "Should not match regexp", field{"actual", actual}, field{"pattern", pattern})
+		return fail(t, messages, "Should not match regexp", field{"actual", actual}, field{"pattern", text(pattern)})
 	}
 
 	return true
@@ -519,18 +525,16 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 
 	actualJSON, err := decodeJSON(actual)
 	if err != nil {
-		return fail(t, messages, "Should be valid JSON", field{"actual", actual}, field{"err", err})
+		return fail(t, messages, "Should be valid JSON", field{"actual", text(actual)}, field{"err", errorText(err)})
 	}
 
 	expectedJSON, err := decodeJSON(expected)
 	if err != nil {
-		return fail(t, messages, "Should be valid JSON", field{"expected", expected}, field{"err", err})
+		return fail(t, messages, "Should be valid JSON", field{"expected", text(expected)}, field{"err", errorText(err)})
 	}
 
-	if equals, reason := equal(actualJSON, expectedJSON); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
-	} else if !equals {
-		return fail(t, messages, "Should be equal JSON", field{"actual", actual}, field{"expected", expected})
+	if equals, _ := equal(actualJSON, expectedJSON); !equals {
+		return fail(t, messages, "Should be equal JSON", field{"actual", text(actual)}, field{"expected", text(expected)})
 	}
 
 	return true
@@ -545,7 +549,7 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 
 	s, err := json.Marshal(actual)
 	if err != nil {
-		return fail(t, messages, "Should be marshalable", field{"actual", actual}, field{"err", err})
+		return fail(t, messages, "Should be marshalable", field{"actual", actual}, field{"err", errorText(err)})
 	}
 
 	return EqualJSON(t, string(s), expected, messages...)

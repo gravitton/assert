@@ -734,149 +734,17 @@ func TestNotPanics(t *testing.T) {
 	testNotPanics(t, nil, false)
 }
 
-func TestMessages(t *testing.T) {
-	err := errors.New("oops")
-	target := errors.New("target")
+func TestMessagesWithAddresses(t *testing.T) {
 	x := 1
-	var ptrErr *testPtrErr
+	s := []int{1, 2}
+	c := make(chan int)
 
-	t.Run("conditions", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Failf", func(t Testing) bool { return Failf(t, "x=%d", 1) }, "x=1"},
-			{"True", func(t Testing) bool { return True(t, false, "ctx: ") }, "ctx: Should be true"},
-			{"False", func(t Testing) bool { return False(t, true, "ctx: ") }, "ctx: Should be false"},
-		})
-	})
-	t.Run("nil and zero", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Nil", func(t Testing) bool { return Nil(t, &x, "ctx: ") }, "ctx: Should be nil\n  actual: &1"},
-			{"NotNil", func(t Testing) bool { return NotNil(t, (*int)(nil), "ctx: ") }, "ctx: Should not be nil\n  actual: (*int)(nil)"},
-			{"Zero", func(t Testing) bool { return Zero(t, 1, "ctx: ") }, "ctx: Should be zero\n  actual: 1"},
-			{"NotZero", func(t Testing) bool { return NotZero(t, "", "ctx: ") }, "ctx: Should not be zero\n  actual: \"\""},
-		})
-	})
-	t.Run("identity", func(t *testing.T) {
-		s := []int{1, 2}
-
-		testMessages(t, []messageCase{
-			{"Same", func(t Testing) bool { return Same(t, ptr(1), ptr(1), "ctx: ") }, "ctx: Should be same\n"},
-			{"Same type", func(t Testing) bool { return Same[any](t, &x, new(int64), "ctx: ") }, "ctx: Should have same type\n  actual: *int\nexpected: *int64"},
-			{"Same invalid", func(t Testing) bool { return Same(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: int\nexpected: int"},
-			{"Same slice", func(t Testing) bool { return Same(t, s, s[:1], "ctx: ") }, fmt.Sprintf("ctx: Should be same\n  actual: [%p] []int{1, 2}\nexpected: [%p] []int{1}", s, s)},
-			{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x, "ctx: ") }, fmt.Sprintf("ctx: Should not be same\n  actual: [%p] (*int)(%p)", &x, &x)},
-			{"NotSame invalid", func(t Testing) bool { return NotSame(t, 1, 1, "ctx: ") }, "ctx: Should be reference\n  actual: int\nexpected: int"},
-		})
-	})
-	t.Run("equality", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Equal", func(t Testing) bool { return Equal(t, 1, 2, "ctx: ") }, "ctx: Should be equal\n  actual: 1\nexpected: 2"},
-			{"Equal nil pointer", func(t Testing) bool { return Equal(t, (*int)(nil), &x, "ctx: ") }, "ctx: Should be equal\n  actual: (*int)(nil)\nexpected: &1"},
-			{"Equal types", func(t Testing) bool { return Equal[any](t, 1, int64(1), "ctx: ") }, "ctx: Should be equal\n  actual: int(1)\nexpected: int64(1)"},
-			{"Equal NaN", func(t Testing) bool { return Equal(t, math.NaN(), math.NaN(), "ctx: ") }, "ctx: Should be equal\n  actual: NaN\nexpected: NaN"},
-			{"Equal unsigned", func(t Testing) bool { return Equal(t, uint(5), uint(6), "ctx: ") }, "ctx: Should be equal\n  actual: 5\nexpected: 6"},
-			{"Equal function", func(t Testing) bool { return Equal(t, TestMessages, TestMessages, "ctx: ") }, "ctx: Should not be function\n  actual: (func(*testing.T))(0x"},
-			{"NotEqual", func(t Testing) bool { return NotEqual(t, 1, 1, "ctx: ") }, "ctx: Should not be equal\n  actual: 1"},
-			{"NotEqual function", func(t Testing) bool { return NotEqual(t, TestMessages, nil, "ctx: ") }, "ctx: Should not be function\n  actual: (func(*testing.T))(0x"},
-		})
-	})
-	t.Run("delta", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"EqualDelta", func(t Testing) bool { return EqualDelta(t, 1, 3, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1\nexpected: 3\n   delta: 1\n    diff: 2"},
-			{"NotEqualDelta", func(t Testing) bool { return NotEqualDelta(t, 1, 2, 1, "ctx: ") }, "ctx: Should not be equal in delta\n  actual: 1\nexpected: 2\n   delta: 1\n    diff: 1"},
-			{"EqualDelta float", func(t Testing) bool { return EqualDelta(t, 1.5, 1.0, 0.25, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1.5\nexpected: 1\n   delta: 0.25\n    diff: 0.5"},
-			{"EqualDelta duration", func(t Testing) bool { return EqualDelta(t, time.Second, 2*time.Second, time.Second/2, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 1s\nexpected: 2s\n   delta: 500ms\n    diff: 1s"},
-			{"EqualDelta overflow", func(t Testing) bool { return EqualDelta[int8](t, 127, -128, 1, "ctx: ") }, "ctx: Should be equal in delta\n  actual: 127\nexpected: -128\n   delta: 1\n    diff: 255"},
-			{"EqualDelta invalid", func(t Testing) bool { return EqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
-			{"NotEqualDelta invalid", func(t Testing) bool { return NotEqualDelta(t, 1, 2, -1, "ctx: ") }, "ctx: Should have non-negative delta\n   delta: -1"},
-		})
-	})
-	t.Run("ordering", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Greater", func(t Testing) bool { return Greater(t, 1, 2, "ctx: ") }, "ctx: Should be greater\n  actual: 1\n   bound: 2"},
-			{"Greater duration", func(t Testing) bool { return Greater(t, time.Second, time.Minute, "ctx: ") }, "ctx: Should be greater\n  actual: 1s\n   bound: 1m0s"},
-			{"GreaterOrEqual", func(t Testing) bool { return GreaterOrEqual(t, 1, 2, "ctx: ") }, "ctx: Should be greater or equal\n  actual: 1\n   bound: 2"},
-			{"Less", func(t Testing) bool { return Less(t, 2, 1, "ctx: ") }, "ctx: Should be less\n  actual: 2\n   bound: 1"},
-			{"LessOrEqual", func(t Testing) bool { return LessOrEqual(t, 2, 1, "ctx: ") }, "ctx: Should be less or equal\n  actual: 2\n   bound: 1"},
-		})
-	})
-	t.Run("length", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Length", func(t Testing) bool { return Length(t, []int{1}, 2, "ctx: ") }, "ctx: Should have length\n  actual: ["},
-			{"Length array", func(t Testing) bool { return Length(t, [1]int{1}, 2, "ctx: ") }, "ctx: Should have length\n  actual: [1]int{1}\n  length: 1\nexpected: 2"},
-			{"Length invalid", func(t Testing) bool { return Length(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
-			{"Empty", func(t Testing) bool { return Empty(t, []int{1}, "ctx: ") }, "ctx: Should be empty\n  actual: ["},
-			{"Empty invalid", func(t Testing) bool { return Empty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
-			{"NotEmpty", func(t Testing) bool { return NotEmpty(t, []int{}, "ctx: ") }, "ctx: Should not be empty\n  actual: ["},
-			{"NotEmpty invalid", func(t Testing) bool { return NotEmpty(t, 5, "ctx: ") }, "ctx: Should be iterable\n  actual: 5"},
-		})
-	})
-	t.Run("contents", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Contains", func(t Testing) bool { return Contains(t, []int{1}, 2, "ctx: ") }, "ctx: Should contain element\n  actual: ["},
-			{"Contains invalid", func(t Testing) bool { return Contains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5\n element: 2"},
-			{"Contains element type", func(t Testing) bool { return Contains(t, []int{1}, "a", "ctx: ") }, "ctx: Should have element of same type\n  actual: ["},
-			{"NotContains", func(t Testing) bool { return NotContains(t, []int{1}, 1, "ctx: ") }, "ctx: Should not contain element\n  actual: ["},
-			{"NotContains invalid", func(t Testing) bool { return NotContains(t, 5, 2, "ctx: ") }, "ctx: Should be iterable\n  actual: 5\n element: 2"},
-			{"EqualUnordered", func(t Testing) bool { return EqualUnordered(t, []int{1, 2, 2}, []int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: ["},
-			{"EqualUnordered difference", func(t Testing) bool { return EqualUnordered(t, [3]int{1, 2, 2}, [3]int{3, 2, 1}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: [3]int{1, 2, 2}\nexpected: [3]int{3, 2, 1}\n   extra: []int{2}\n missing: []int{3}"},
-			{"EqualUnordered durations", func(t Testing) bool { return EqualUnordered(t, [1]time.Duration{1e9}, [1]time.Duration{6e10}, "ctx: ") }, "ctx: Should be equal in any order\n  actual: [1]time.Duration{1000000000}\nexpected: [1]time.Duration{60000000000}\n   extra: []time.Duration{1000000000}\n missing: []time.Duration{60000000000}"},
-			{"EqualUnordered invalid", func(t Testing) bool { return EqualUnordered(t, "a", "a", "ctx: ") }, "ctx: Should be array or slice\n  actual: \"a\"\nexpected: \"a\""},
-			{"EqualUnordered type", func(t Testing) bool { return EqualUnordered[any](t, []int{}, []uint{}, "ctx: ") }, "ctx: Should have same type\n  actual: ["},
-			{"HasPrefix", func(t Testing) bool { return HasPrefix(t, "ab", "b", "ctx: ") }, "ctx: Should have prefix\n  actual: \"ab\"\n  prefix: \"b\""},
-			{"HasPrefix invalid", func(t Testing) bool { return HasPrefix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  prefix: 1"},
-			{"HasPrefix type", func(t Testing) bool { return HasPrefix[any](t, "a", testType("a"), "ctx: ") }, "ctx: Should have same type\n  actual: string\n  prefix: assert.testType"},
-			{"HasSuffix", func(t Testing) bool { return HasSuffix(t, "ab", "a", "ctx: ") }, "ctx: Should have suffix\n  actual: \"ab\"\n  suffix: \"a\""},
-			{"HasSuffix type", func(t Testing) bool { return HasSuffix[any](t, []int{1}, []uint{1}, "ctx: ") }, "ctx: Should have same type\n  actual: []int\n  suffix: []uint"},
-			{"HasSuffix invalid", func(t Testing) bool { return HasSuffix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  suffix: 1"},
-		})
-	})
-	t.Run("errors", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Error", func(t Testing) bool { return Error(t, nil, "ctx: ") }, "ctx: Should be error"},
-			{"NoError", func(t Testing) bool { return NoError(t, err, "ctx: ") }, "ctx: Should not be error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}"},
-			{"NoError multi-line", func(t Testing) bool { return NoError(t, errors.New("a\nb"), "ctx: ") }, "ctx: Should not be error\n     msg: a\n          b\n   error: &errors.errorString{s:\"a\\nb\"}"},
-			{"NoError typed nil", func(t Testing) bool { return NoError(t, ptrErr, "ctx: ") }, "ctx: Should not be error\n     msg: <nil>\n   error: (*assert.testPtrErr)(nil)"},
-			{"ErrorIs", func(t Testing) bool { return ErrorIs(t, err, target, "ctx: ") }, "ctx: Should match error\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: &errors.errorString{s:\"target\"}"},
-			{"NotErrorIs", func(t Testing) bool { return NotErrorIs(t, err, err, "ctx: ") }, "ctx: Should not match error\n"},
-			{"ErrorAs", func(t Testing) bool { return ErrorAs(t, err, &ptrErr, "ctx: ") }, "ctx: Should be assignable to target\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  target: **assert.testPtrErr"},
-			{"ErrorAs invalid", func(t Testing) bool { return ErrorAs(t, err, ptrErr, "ctx: ") }, "ctx: Should have pointer to error or interface target\n  target: *assert.testPtrErr"},
-			{"ErrorContains", func(t Testing) bool { return ErrorContains(t, err, "x", "ctx: ") }, "ctx: Should contain substring\n     msg: oops\n   error: &errors.errorString{s:\"oops\"}\n  substr: \"x\""},
-			{"ErrorContains nil", func(t Testing) bool { return ErrorContains(t, nil, "x", "ctx: ") }, "ctx: Should be error\n  substr: \"x\""},
-		})
-	})
-	t.Run("regexp", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Matches", func(t Testing) bool { return Matches(t, "a", "b", "ctx: ") }, "ctx: Should match regexp\n  actual: \"a\"\n pattern: b"},
-			{"Matches invalid", func(t Testing) bool { return Matches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
-			{"NotMatches", func(t Testing) bool { return NotMatches(t, "a", "a", "ctx: ") }, "ctx: Should not match regexp\n  actual: \"a\"\n pattern: a"},
-			{"NotMatches invalid", func(t Testing) bool { return NotMatches(t, "a", "[", "ctx: ") }, "ctx: Should be valid regexp\n pattern: [\n     err: "},
-		})
-	})
-	t.Run("JSON", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
-			{"EqualJSON multi-line", func(t Testing) bool { return EqualJSON(t, "[\n1\n]", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: [\n          1\n          ]\nexpected: 2"},
-			{"EqualJSON trailing", func(t Testing) bool { return EqualJSON(t, "1 x", "1", "ctx: ") }, "ctx: Should be valid JSON\n  actual: 1 x\n     err: unexpected \"x\" after top-level value"},
-			{"EqualJSON invalid actual", func(t Testing) bool { return EqualJSON(t, "x", "2", "ctx: ") }, "ctx: Should be valid JSON\n  actual: x\n     err: "},
-			{"EqualJSON invalid expected", func(t Testing) bool { return EqualJSON(t, "1", "x", "ctx: ") }, "ctx: Should be valid JSON\nexpected: x\n     err: "},
-			{"JSON", func(t Testing) bool { return JSON(t, 1, "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
-			{"JSON unmarshalable", func(t Testing) bool { return JSON(t, make(chan int), "2", "ctx: ") }, "ctx: Should be marshalable\n  actual: (chan int)(0x"},
-		})
-	})
-	t.Run("panics", func(t *testing.T) {
-		testMessages(t, []messageCase{
-			{"Panics", func(t Testing) bool { return Panics(t, func() {}, "ctx: ") }, "ctx: Should panic"},
-			{"Panics nil", func(t Testing) bool { return Panics(t, nil, "ctx: ") }, "ctx: Should be non-nil function"},
-			{"PanicsWith nil", func(t Testing) bool { return PanicsWith(t, nil, 1, "ctx: ") }, "ctx: Should be non-nil function"},
-			{"NotPanics nil function", func(t Testing) bool { return NotPanics(t, nil, "ctx: ") }, "ctx: Should be non-nil function"},
-			{"PanicsWith types", func(t Testing) bool { return PanicsWith(t, func() { panic(1) }, int64(1), "ctx: ") }, "ctx: Should panic with value\n  actual: int(1)\nexpected: int64(1)"},
-			{"PanicsWith", func(t Testing) bool { return PanicsWith(t, func() {}, "b", "ctx: ") }, "ctx: Should panic\nexpected: \"b\""},
-			{"PanicsWith value", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, "b", "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: \"b\""},
-			{"PanicsWith error", func(t Testing) bool { return PanicsWith(t, func() { panic("a") }, err, "ctx: ") }, "ctx: Should panic with value\n  actual: \"a\"\nexpected: &errors.errorString{s:\"oops\"}"},
-			{"PanicsWith wrong error", func(t Testing) bool { return PanicsWith(t, func() { panic(err) }, target, "ctx: ") }, "ctx: Should panic with value\n  actual: &errors.errorString{s:\"oops\"}\nexpected: &errors.errorString{s:\"target\"}"},
-			{"NotPanics nil", func(t Testing) bool { return NotPanics(t, func() { panic(nil) }, "ctx: ") }, "ctx: Should not panic\n   value: <nil>"},
-			{"NotPanics", func(t Testing) bool { return NotPanics(t, func() { panic("a") }, "ctx: ") }, "ctx: Should not panic\n   value: \"a\""},
-		})
+	testMessages(t, []messageCase{
+		{"Same", func(t Testing) bool { return Same(t, s, s[:1]) }, fmt.Sprintf("Should be same\n  actual: [%p] []int{1, 2}\nexpected: [%p] []int{1}", s, s)},
+		{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x) }, fmt.Sprintf("Should not be same\n  actual: [%p] (*int)(%p)", &x, &x)},
+		{"Equal function", func(t Testing) bool { return Equal(t, ptr, ptr) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
+		{"NotEqual function", func(t Testing) bool { return NotEqual(t, ptr, nil) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
+		{"JSON", func(t Testing) bool { return JSON(t, c, "1") }, fmt.Sprintf("Should be marshalable\n  actual: (chan int)(%p)", c)},
 	})
 }
 
@@ -1167,65 +1035,6 @@ func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
 	tt = newLogger()
 	if NotEqualDelta(tt, actual, expected, delta) {
 		t.Errorf("NotEqualDelta(%v,%v,%v) should return false", actual, expected, delta)
-	}
-}
-
-const formatLimit = 1024
-
-func TestMessageTruncate(t *testing.T) {
-	long := strings.Repeat("a", 2*formatLimit)
-	limit := 3*formatLimit + 100
-
-	cases := []struct {
-		name   string
-		assert func(t Testing) bool
-	}{
-		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, `"`+long+`"`, `"`+long+`b"`) }},
-		{"EqualJSON invalid", func(t Testing) bool { return EqualJSON(t, long, "1") }},
-		{"Matches", func(t Testing) bool { return Matches(t, long, long+"b") }},
-		{"NoError", func(t Testing) bool { return NoError(t, errors.New(long)) }},
-		{"Equal", func(t Testing) bool { return Equal(t, long, long+"b") }},
-		{"ErrorIs", func(t Testing) bool { return ErrorIs(t, errors.New(long), errors.New(long)) }},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			tt := newLogger()
-			c.assert(tt)
-
-			if len(tt.LastError) > limit {
-				t.Errorf("message should be truncated, got %d bytes", len(tt.LastError))
-			}
-		})
-	}
-}
-
-func TestMessageWindow(t *testing.T) {
-	long := strings.Repeat("a", 2*formatLimit)
-
-	cases := []struct {
-		name     string
-		assert   func(t Testing) bool
-		expected []string
-	}{
-		{"Equal", func(t Testing) bool { return Equal(t, long+"x"+long, long+"y"+long) }, []string{"\n  actual: …a", "ax", "\nexpected: …a", "ay"}},
-		{"Equal slices", func(t Testing) bool { return Equal(t, []string{long, "x"}, []string{long, "y"}) }, []string{`", "x"}`, `", "y"}`}},
-		{"HasPrefix", func(t Testing) bool { return HasPrefix(t, long+"x"+long, long+"y") }, []string{"ax", `ay"`}},
-		{"HasSuffix", func(t Testing) bool { return HasSuffix(t, long+"x"+long, "y"+long) }, []string{"\n  actual: …a", "xa", "\n  suffix: \"ya"}},
-		{"EqualJSON", func(t Testing) bool { return EqualJSON(t, `"`+long+`x"`, `"`+long+`y"`) }, []string{`ax"`, `ay"`}},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			tt := newLogger()
-			c.assert(tt)
-
-			for _, expected := range c.expected {
-				if !strings.Contains(tt.LastError, expected) {
-					t.Errorf("message should contain %q, got %q", expected, tt.LastError)
-				}
-			}
-		})
 	}
 }
 

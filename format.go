@@ -27,7 +27,7 @@ func fail(t Testing, messages []string, reason string, fields ...field) bool {
 	message.WriteString(reason)
 
 	for _, item := range fields {
-		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, format(item.value))
+		fmt.Fprintf(&message, "\n%*s: %s", labelWidth, item.label, indent(format(item.value)))
 	}
 
 	return Fail(t, message.String())
@@ -46,6 +46,18 @@ func format(object any) string {
 	}
 }
 
+func indent(s string) string {
+	return strings.ReplaceAll(s, "\n", "\n"+strings.Repeat(" ", labelWidth+2))
+}
+
+func errorFields(err error, fields ...field) []field {
+	return append([]field{{"msg", errorText(err)}, {"error", err}}, fields...)
+}
+
+func errorText(err error) text {
+	return text(fmt.Sprint(err))
+}
+
 func distinct(actual, expected any) (any, any) {
 	if format(actual) != format(expected) || reflect.TypeOf(actual) == reflect.TypeOf(expected) {
 		return actual, expected
@@ -55,10 +67,15 @@ func distinct(actual, expected any) (any, any) {
 }
 
 func typed(object any) text {
-	return text(fmt.Sprintf("%T(%s)", object, format(object)))
+	value, name := format(object), fmt.Sprintf("%T", object)
+	if strings.HasPrefix(value, name) {
+		return text(value)
+	}
+
+	return text(name + "(" + value + ")")
 }
 
-func typeOf(object any) text {
+func typeName(object any) text {
 	return text(fmt.Sprintf("%T", object))
 }
 

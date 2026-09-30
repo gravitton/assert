@@ -16,18 +16,75 @@ type validity string
 const (
 	valid            validity = ""
 	notReference     validity = "Should be reference"
-	notIterable      validity = "Should be iterable"
-	notStringOrSlice validity = "Should be string or slice"
-	notArrayOrSlice  validity = "Should be array or slice"
 	typeMismatch     validity = "Should have same type"
-	notNumber        validity = "Should not be NaN"
-	invalidDelta     validity = "Should have non-negative delta"
 	notFunction      validity = "Should not be function"
-	elementType      validity = "Should have element of same type"
-	notError         validity = "Should be error"
+	invalidDelta     validity = "Should have non-negative delta"
+	notNumber        validity = "Should not be NaN"
+	notIterable      validity = "Should be iterable"
+	elementMismatch  validity = "Should have element of same type"
+	notArrayOrSlice  validity = "Should be array or slice"
+	notStringOrSlice validity = "Should be string or slice"
 	invalidTarget    validity = "Should have pointer to error or interface target"
+	notError         validity = "Should be error"
 	nilFunction      validity = "Should be non-nil function"
 )
+
+func isNil(object any) bool {
+	if object == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(object)
+
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.UnsafePointer:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func isZero(object any) bool {
+	value := reflect.ValueOf(object)
+
+	if zeroer, ok := object.(interface{ IsZero() bool }); ok && value.Kind() != reflect.Pointer {
+		return zeroer.IsZero()
+	}
+
+	return object == nil || value.IsZero()
+}
+
+func same(actual, expected any) (bool, validity) {
+	valueOfActual := reflect.ValueOf(actual)
+	valueOfExpected := reflect.ValueOf(expected)
+
+	if !isReference(valueOfActual) || !isReference(valueOfExpected) {
+		return false, notReference
+	}
+
+	if valueOfActual.Type() != valueOfExpected.Type() {
+		return false, typeMismatch
+	}
+
+	if valueOfActual.Pointer() != valueOfExpected.Pointer() {
+		return false, valid
+	}
+
+	if valueOfActual.Kind() == reflect.Slice {
+		return valueOfActual.Len() == valueOfExpected.Len() && valueOfActual.Cap() == valueOfExpected.Cap(), valid
+	}
+
+	return true, valid
+}
+
+func isReference(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Chan:
+		return true
+	default:
+		return false
+	}
+}
 
 func equal(actual, expected any) (bool, validity) {
 	if isFunction(actual) || isFunction(expected) {
@@ -94,38 +151,6 @@ func compare[T Ordered](actual, bound T) (int, validity) {
 	return cmp.Compare(actual, bound), valid
 }
 
-func same(actual, expected any) (bool, validity) {
-	valueOfActual := reflect.ValueOf(actual)
-	valueOfExpected := reflect.ValueOf(expected)
-
-	if !isReference(valueOfActual) || !isReference(valueOfExpected) {
-		return false, notReference
-	}
-
-	if valueOfActual.Type() != valueOfExpected.Type() {
-		return false, typeMismatch
-	}
-
-	if valueOfActual.Pointer() != valueOfExpected.Pointer() {
-		return false, valid
-	}
-
-	if valueOfActual.Kind() == reflect.Slice {
-		return valueOfActual.Len() == valueOfExpected.Len() && valueOfActual.Cap() == valueOfExpected.Cap(), valid
-	}
-
-	return true, valid
-}
-
-func isReference(value reflect.Value) bool {
-	switch value.Kind() {
-	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Chan:
-		return true
-	default:
-		return false
-	}
-}
-
 func length(object any) (int, validity) {
 	value := reflect.ValueOf(object)
 
@@ -156,7 +181,7 @@ func contains(object, element any) (bool, validity) {
 
 func containsSubstring(value, element reflect.Value) (bool, validity) {
 	if element.Kind() != reflect.String {
-		return false, elementType
+		return false, elementMismatch
 	}
 
 	return strings.Contains(value.String(), element.String()), valid
@@ -164,7 +189,7 @@ func containsSubstring(value, element reflect.Value) (bool, validity) {
 
 func containsElement(value reflect.Value, element any) (bool, validity) {
 	if !isAssignable(reflect.TypeOf(element), value.Type().Elem()) {
-		return false, elementType
+		return false, elementMismatch
 	}
 
 	return slices.ContainsFunc(elements(value), func(item reflect.Value) bool {
@@ -178,6 +203,68 @@ func isAssignable(from, to reflect.Type) bool {
 	}
 
 	return from.AssignableTo(to)
+}
+
+func indirectArray(value reflect.Value) reflect.Value {
+	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
+		return value.Elem()
+	}
+
+	return value
+}
+
+func elements(value reflect.Value) []reflect.Value {
+	items := make([]reflect.Value, 0, value.Len())
+	for _, item := range value.Seq2() {
+		items = append(items, item)
+	}
+
+	return items
+}
+
+func unorderedDifference(actual, expected any) (extra, missing reflect.Value, reason validity) {
+	valueOfActual := indirectArray(reflect.ValueOf(actual))
+	valueOfExpected := indirectArray(reflect.ValueOf(expected))
+
+	if !isArrayOrSlice(valueOfActual) || !isArrayOrSlice(valueOfExpected) {
+		return extra, missing, notArrayOrSlice
+	}
+
+	if valueOfActual.Type() != valueOfExpected.Type() {
+		return extra, missing, typeMismatch
+	}
+
+	var extraItems []reflect.Value
+	missingItems := elements(valueOfExpected)
+
+	for _, item := range elements(valueOfActual) {
+		index := slices.IndexFunc(missingItems, func(candidate reflect.Value) bool {
+			return reflect.DeepEqual(candidate.Interface(), item.Interface())
+		})
+
+		if index >= 0 {
+			missingItems = slices.Delete(missingItems, index, index+1)
+		} else {
+			extraItems = append(extraItems, item)
+		}
+	}
+
+	itemType := valueOfActual.Type().Elem()
+
+	return sliceOf(itemType, extraItems), sliceOf(itemType, missingItems), valid
+}
+
+func isArrayOrSlice(value reflect.Value) bool {
+	switch value.Kind() {
+	case reflect.Array, reflect.Slice:
+		return true
+	default:
+		return false
+	}
+}
+
+func sliceOf(itemType reflect.Type, items []reflect.Value) reflect.Value {
+	return reflect.Append(reflect.MakeSlice(reflect.SliceOf(itemType), 0, len(items)), items...)
 }
 
 func hasPrefix(object, prefix any) (bool, validity) {
@@ -235,78 +322,8 @@ func equalAt(object, part reflect.Value, start int) bool {
 	return reflect.DeepEqual(object.Slice(start, end).Interface(), part.Interface())
 }
 
-func unorderedDifference(actual, expected any) (extra, missing reflect.Value, reason validity) {
-	valueOfActual := indirectArray(reflect.ValueOf(actual))
-	valueOfExpected := indirectArray(reflect.ValueOf(expected))
-
-	if !isArrayOrSlice(valueOfActual) || !isArrayOrSlice(valueOfExpected) {
-		return extra, missing, notArrayOrSlice
-	}
-
-	if valueOfActual.Type() != valueOfExpected.Type() {
-		return extra, missing, typeMismatch
-	}
-
-	var extraItems []reflect.Value
-	missingItems := elements(valueOfExpected)
-
-	for _, item := range elements(valueOfActual) {
-		index := slices.IndexFunc(missingItems, func(candidate reflect.Value) bool {
-			return reflect.DeepEqual(candidate.Interface(), item.Interface())
-		})
-
-		if index >= 0 {
-			missingItems = slices.Delete(missingItems, index, index+1)
-		} else {
-			extraItems = append(extraItems, item)
-		}
-	}
-
-	itemType := valueOfActual.Type().Elem()
-
-	return sliceOf(itemType, extraItems), sliceOf(itemType, missingItems), valid
-}
-
-func indirectArray(value reflect.Value) reflect.Value {
-	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
-		return value.Elem()
-	}
-
-	return value
-}
-
-func isArrayOrSlice(value reflect.Value) bool {
-	switch value.Kind() {
-	case reflect.Array, reflect.Slice:
-		return true
-	default:
-		return false
-	}
-}
-
-func elements(value reflect.Value) []reflect.Value {
-	items := make([]reflect.Value, 0, value.Len())
-	for _, item := range value.Seq2() {
-		items = append(items, item)
-	}
-
-	return items
-}
-
-func sliceOf(itemType reflect.Type, items []reflect.Value) reflect.Value {
-	return reflect.Append(reflect.MakeSlice(reflect.SliceOf(itemType), 0, len(items)), items...)
-}
-
 func errorIs(err, target error) bool {
 	return errors.Is(err, target)
-}
-
-func errorContains(err error, substr string) (bool, validity) {
-	if err == nil {
-		return false, notError
-	}
-
-	return strings.Contains(err.Error(), substr), valid
 }
 
 func errorAs(err error, target any) (bool, validity) {
@@ -326,6 +343,14 @@ func isErrorTarget(target any) bool {
 	elem := valueOf.Type().Elem()
 
 	return elem.Kind() == reflect.Interface || elem.Implements(reflect.TypeFor[error]())
+}
+
+func errorContains(err error, substr string) (bool, validity) {
+	if err == nil {
+		return false, notError
+	}
+
+	return strings.Contains(err.Error(), substr), valid
 }
 
 func matches(actual, pattern string) (bool, error) {
@@ -373,29 +398,4 @@ func panicsWith(value, expected any) bool {
 	}
 
 	return reflect.DeepEqual(value, expected)
-}
-
-func isNil(object any) bool {
-	if object == nil {
-		return true
-	}
-
-	value := reflect.ValueOf(object)
-
-	switch value.Kind() {
-	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.UnsafePointer:
-		return value.IsNil()
-	default:
-		return false
-	}
-}
-
-func isZero(object any) bool {
-	value := reflect.ValueOf(object)
-
-	if zeroer, ok := object.(interface{ IsZero() bool }); ok && value.Kind() != reflect.Pointer {
-		return zeroer.IsZero()
-	}
-
-	return object == nil || value.IsZero()
 }
