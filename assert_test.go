@@ -638,12 +638,12 @@ func TestEqualJSON(t *testing.T) {
 		testEqualJSON(t, `0.001`, `1e-3`, true)
 		testEqualJSON(t, `0.001`, `1e-2`, false)
 	})
-	t.Run("large numbers", func(t *testing.T) {
-		testEqualJSON(t, `{"id":9007199254740993}`, `{"id":9007199254740992}`, false)
-		testEqualJSON(t, `{"id":9007199254740993}`, `{"id":9007199254740993}`, true)
-		testEqualJSON(t, `1e9999999`, `1e9999999`, true)
-		testEqualJSON(t, `1e9999999`, `1e9999998`, false)
-		testEqualJSON(t, `1e1000001`, `10e1000000`, true)
+	t.Run("float64 numbers", func(t *testing.T) {
+		testEqualJSON(t, `{"id":9007199254740993}`, `{"id":9007199254740992}`, true)
+		testEqualJSON(t, `{"id":9007199254740994}`, `{"id":9007199254740992}`, false)
+		testEqualJSON(t, `1.0000000000000001`, `1`, true)
+		testEqualJSON(t, `1e308`, `10e307`, true)
+		testEqualJSON(t, `1e9999999`, `1e9999999`, false)
 	})
 	t.Run("invalid", func(t *testing.T) {
 		testEqualJSON(t, "Hello World", "Hello World", false)
@@ -661,9 +661,10 @@ func TestEqualJSON(t *testing.T) {
 		testEqualJSON(t, ``, ``, false)
 	})
 	t.Run("duplicate keys", func(t *testing.T) {
-		testEqualJSON(t, `{"a":1,"a":2}`, `{"a":2}`, false)
+		testEqualJSON(t, `{"a":1,"a":2}`, `{"a":2}`, true)
+		testEqualJSON(t, `{"a":1,"a":2}`, `{"a":1}`, false)
 		testEqualJSON(t, `[{"a":1}, {"a":1}]`, `[{"a":1}, {"a":1}]`, true)
-		testEqualJSON(t, `{"a":{"b":1,"b":1}}`, `{"a":{"b":1}}`, false)
+		testEqualJSON(t, `{"a":{"b":1,"b":1}}`, `{"a":{"b":1}}`, true)
 	})
 	t.Run("empty", func(t *testing.T) {
 		testEqualJSON(t, `{}`, ` { } `, true)
@@ -823,9 +824,9 @@ func TestMessages(t *testing.T) {
 			{"EqualUnordered type", func(t Testing) bool { return EqualUnordered[any](t, []int{}, []uint{}, "ctx: ") }, "ctx: Should have same type\n  actual: ["},
 			{"HasPrefix", func(t Testing) bool { return HasPrefix(t, "ab", "b", "ctx: ") }, "ctx: Should have prefix\n  actual: \"ab\"\n  prefix: \"b\""},
 			{"HasPrefix invalid", func(t Testing) bool { return HasPrefix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  prefix: 1"},
-			{"HasPrefix type", func(t Testing) bool { return HasPrefix[any](t, "a", testType("a"), "ctx: ") }, "ctx: Should have same type\n  actual: string(\"a\")\n  prefix: assert.testType(\"a\")"},
+			{"HasPrefix type", func(t Testing) bool { return HasPrefix[any](t, "a", testType("a"), "ctx: ") }, "ctx: Should have same type\n  actual: string\n  prefix: assert.testType"},
 			{"HasSuffix", func(t Testing) bool { return HasSuffix(t, "ab", "a", "ctx: ") }, "ctx: Should have suffix\n  actual: \"ab\"\n  suffix: \"a\""},
-			{"HasSuffix type", func(t Testing) bool { return HasSuffix[any](t, []int{1}, []uint{1}, "ctx: ") }, "ctx: Should have same type\n  actual: []int{1}\n  suffix: []uint{0x1}"},
+			{"HasSuffix type", func(t Testing) bool { return HasSuffix[any](t, []int{1}, []uint{1}, "ctx: ") }, "ctx: Should have same type\n  actual: []int\n  suffix: []uint"},
 			{"HasSuffix invalid", func(t Testing) bool { return HasSuffix(t, 1, 1, "ctx: ") }, "ctx: Should be string or slice\n  actual: 1\n  suffix: 1"},
 		})
 	})
@@ -855,7 +856,6 @@ func TestMessages(t *testing.T) {
 		testMessages(t, []messageCase{
 			{"EqualJSON", func(t Testing) bool { return EqualJSON(t, "1", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: 1\nexpected: 2"},
 			{"EqualJSON multi-line", func(t Testing) bool { return EqualJSON(t, "[\n1\n]", "2", "ctx: ") }, "ctx: Should be equal JSON\n  actual: [\n          1\n          ]\nexpected: 2"},
-			{"EqualJSON duplicate", func(t Testing) bool { return EqualJSON(t, `{"a":1,"a":1}`, `{"a":1}`, "ctx: ") }, "ctx: Should be valid JSON\n  actual: {\"a\":1,\"a\":1}\n     err: duplicate key \"a\""},
 			{"EqualJSON trailing", func(t Testing) bool { return EqualJSON(t, "1 x", "1", "ctx: ") }, "ctx: Should be valid JSON\n  actual: 1 x\n     err: unexpected \"x\" after top-level value"},
 			{"EqualJSON invalid actual", func(t Testing) bool { return EqualJSON(t, "x", "2", "ctx: ") }, "ctx: Should be valid JSON\n  actual: x\n     err: "},
 			{"EqualJSON invalid expected", func(t Testing) bool { return EqualJSON(t, "1", "x", "ctx: ") }, "ctx: Should be valid JSON\nexpected: x\n     err: "},

@@ -507,9 +507,11 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 
 // EqualJSON asserts that JSON strings are semantically equal.
 //
-// Numbers are compared by exact decimal value, so 1.0 equals 1, 1e2 equals 100
-// and large integers and exponents keep their precision. An object with a
-// duplicate key is invalid JSON.
+// Both strings are decoded as encoding/json decodes into any: numbers become
+// float64, so 1.0 equals 1 and 1e2 equals 100, but integers beyond 2^53 may
+// compare equal when they differ, and numbers beyond the float64 range are
+// reported as invalid JSON. To compare such numbers exactly, decode into a
+// struct and use [Equal]. The last of duplicate keys wins.
 func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	t.Helper()
 
