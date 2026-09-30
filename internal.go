@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -21,6 +22,7 @@ const (
 	notArrayOrSlice  validity = "Should be array or slice"
 	typeMismatch     validity = "Should have same type"
 	notNumber        validity = "Should not be NaN"
+	invalidDelta     validity = "Should have non-negative delta"
 	notError         validity = "Should be error"
 	invalidTarget    validity = "Should have pointer to error or interface target"
 	nilFunction      validity = "Should be non-nil function"
@@ -31,11 +33,41 @@ func equal(actual, expected any) (bool, validity) {
 }
 
 func equalDelta[T Numeric](actual, expected, delta T) (bool, validity) {
-	return distance(actual, expected) <= delta, valid
+	switch {
+	case delta < 0 || delta != delta:
+		return false, invalidDelta
+	case actual == expected || actual != actual && expected != expected:
+		return true, valid
+	case isFloat[T]():
+		return floatDistance(actual, expected) <= delta, valid
+	default:
+		return integerDistance(actual, expected) <= uint64(delta), valid
+	}
 }
 
-func distance[T Numeric](actual, expected T) T {
+func distance[T Numeric](actual, expected T) any {
+	if isFloat[T]() {
+		return floatDistance(actual, expected)
+	}
+
+	return text(strconv.FormatUint(integerDistance(actual, expected), 10))
+}
+
+func floatDistance[T Numeric](actual, expected T) T {
 	return max(actual, expected) - min(actual, expected)
+}
+
+func integerDistance[T Numeric](actual, expected T) uint64 {
+	return uint64(max(actual, expected)) - uint64(min(actual, expected))
+}
+
+func isFloat[T Numeric]() bool {
+	switch reflect.TypeFor[T]().Kind() {
+	case reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
 }
 
 func compare[T Ordered](actual, bound T) (int, validity) {
