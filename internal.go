@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -62,7 +61,12 @@ func distance[T Numeric](actual, expected T) any {
 		return floatDistance(actual, expected)
 	}
 
-	return text(strconv.FormatUint(integerDistance(actual, expected), 10))
+	span := integerDistance(actual, expected)
+	if value := T(span); value >= 0 && uint64(value) == span {
+		return value
+	}
+
+	return span
 }
 
 func floatDistance[T Numeric](actual, expected T) T {

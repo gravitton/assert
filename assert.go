@@ -160,7 +160,9 @@ func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool
 	if equals, reason := equal(actual, expected); reason != valid {
 		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
 	} else if !equals {
-		return fail(t, messages, "Should be equal", field{"actual", actual}, field{"expected", expected})
+		distinctActual, distinctExpected := distinct(actual, expected)
+
+		return fail(t, messages, "Should be equal", field{"actual", distinctActual}, field{"expected", distinctExpected})
 	}
 
 	return true
@@ -579,7 +581,9 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	} else if !panicked {
 		return fail(t, messages, "Should panic", field{"expected", expected})
 	} else if !panicsWith(value, expected) {
-		return fail(t, messages, "Should panic with value", field{"actual", value}, field{"expected", expected})
+		distinctActual, distinctExpected := distinct(value, expected)
+
+		return fail(t, messages, "Should panic with value", field{"actual", distinctActual}, field{"expected", distinctExpected})
 	}
 
 	return true
