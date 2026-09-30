@@ -11,13 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Zero` and `NotZero`, using the value's `IsZero` method when present; a non-nil empty slice or map is not zero, nor is a non-nil pointer
 - `EqualUnordered`, comparing arrays or slices as multisets and reporting extra and missing elements
 - `HasPrefix` and `HasSuffix` for strings and slices
-- `ErrorContains`, matching a substring of the error message
-- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` accept a pointer to an array
+- `ErrorContains`, matching a substring of the error message as `fmt` prints it
+- `Length`, `Empty`, `NotEmpty`, `Contains` and `NotContains` accept a pointer to an array; `Contains`, `NotContains` and `EqualUnordered` reject a nil one as `Should be non-nil array pointer`
 - Runnable examples showing the failure messages of each assertion
 
 ### Changed
 - **Breaking:** `Error`, `NoError` and `ErrorContains` treat a typed nil stored in an `error` as an error, as `err != nil` does
-- **Breaking:** `Equal` and `NotEqual` reject non-nil functions as `Should not be function` instead of treating them as never equal
 - **Breaking:** `EqualJSON` and `JSON` compare numbers as `float64`, as `encoding/json` decodes them, instead of by exact decimal value; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
 - **Breaking:** `Contains` and `NotContains` on a string require the substring to have the string's type, so a named string type and `string` are reported as `Should have element of same type`
 - `Same` reports references of different types as `Should have same type` instead of `Should be same`

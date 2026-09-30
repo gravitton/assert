@@ -171,10 +171,11 @@ helper appends `"Min."`, the leaf appends `"X: "`, and the failure reads `Min.X:
 **Nil:** `Nil` and `NotNil` treat a typed nil stored in their `any` argument as nil, unlike a plain `== nil`
 comparison. Pointers, slices, maps, channels, functions and `unsafe.Pointer` all qualify. `Error`, `NoError` and
 `ErrorContains` do not: a `(*MyErr)(nil)` returned as an `error` is an error, exactly as `if err != nil` sees it.
+Its message is `<nil>` when its `Error` method dereferences the nil receiver, as `fmt` prints it.
 
 **Equality:** `Equal` uses `reflect.DeepEqual`: pointers are compared by the values they reference, a typed nil stored
-in an interface is not equal to an untyped `nil`, and NaN is not equal to itself, as with `==`. Non-nil functions are
-never deeply equal, so `Equal` and `NotEqual` reject them as invalid arguments; use `Nil` or `NotNil` instead. `Same`
+in an interface is not equal to an untyped `nil`, and NaN is not equal to itself, as with `==`. Functions, including
+those nested in a value, are equal only when both are nil; use `Nil` or `NotNil` for them. `Same`
 compares identity: same type and address, and for slices also the same length and capacity. Two nil references of the
 same type are the same. Pointers to zero-size values and slices with zero capacity may share an address even when
 allocated separately.
@@ -184,7 +185,7 @@ or NaN delta. NaN is only equal to NaN. Its failure shows the delta and the actu
 friends accept any `cmp.Ordered` type, strings included, and report a NaN on either side as `Should not be NaN`.
 
 **Length and contents:** String length is measured in bytes, not runes. A pointer to an array works like the array,
-except that `Contains` and `EqualUnordered` reject a nil one. `HasPrefix` and `HasSuffix` take strings and slices only,
+except that `Contains` and `EqualUnordered` reject a nil one as `Should be non-nil array pointer`. `HasPrefix` and `HasSuffix` take strings and slices only,
 since two arrays of one type always have the same length. **`Contains` on a map searches the values, not the keys**,
 unlike testify. The element must have the container's element type, or be assignable to it when that is an interface
 type, and a substring must have the same type as the string; a mismatch is reported as a failure, not silently `false`.

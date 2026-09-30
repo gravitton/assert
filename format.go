@@ -85,7 +85,7 @@ func comparisonFields(actual, expected any) []field {
 }
 
 func typed(object any) text {
-	value, name := format(object), fmt.Sprintf("%T", object)
+	value, name := format(object), string(typeName(object))
 	if strings.HasPrefix(value, name) {
 		return text(value)
 	}
@@ -94,6 +94,10 @@ func typed(object any) text {
 }
 
 func typeName(object any) text {
+	if _, ok := object.([]byte); ok {
+		return "[]byte"
+	}
+
 	return text(fmt.Sprintf("%T", object))
 }
 

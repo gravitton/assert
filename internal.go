@@ -17,7 +17,6 @@ const (
 	valid            validity = ""
 	notReference     validity = "Should be reference"
 	typeMismatch     validity = "Should have same type"
-	notFunction      validity = "Should not be function"
 	invalidDelta     validity = "Should have non-negative delta"
 	notNumber        validity = "Should not be NaN"
 	notIterable      validity = "Should be iterable"
@@ -27,6 +26,7 @@ const (
 	invalidTarget    validity = "Should have pointer to error or interface target"
 	notError         validity = "Should be error"
 	nilFunction      validity = "Should be non-nil function"
+	nilArrayPointer  validity = "Should be non-nil array pointer"
 )
 
 func isNil(object any) bool {
@@ -86,18 +86,8 @@ func isReference(value reflect.Value) bool {
 	}
 }
 
-func equal(actual, expected any) (bool, validity) {
-	if isFunction(actual) || isFunction(expected) {
-		return false, notFunction
-	}
-
-	return reflect.DeepEqual(actual, expected), valid
-}
-
-func isFunction(object any) bool {
-	value := reflect.ValueOf(object)
-
-	return value.Kind() == reflect.Func && !value.IsNil()
+func equal(actual, expected any) bool {
+	return reflect.DeepEqual(actual, expected)
 }
 
 func equalDelta[T Numeric](actual, expected, delta T) (bool, validity) {
@@ -158,7 +148,7 @@ func length(object any) (int, validity) {
 	case reflect.String, reflect.Array, reflect.Slice, reflect.Map, reflect.Chan:
 		return value.Len(), valid
 	case reflect.Pointer:
-		if value.Type().Elem().Kind() == reflect.Array {
+		if isArrayPointer(value) {
 			return value.Len(), valid
 		}
 	}
@@ -167,6 +157,10 @@ func length(object any) (int, validity) {
 }
 
 func contains(object, element any) (bool, validity) {
+	if isNilArrayPointer(object) {
+		return false, nilArrayPointer
+	}
+
 	value := indirectArray(reflect.ValueOf(object))
 
 	switch value.Kind() {
@@ -210,11 +204,21 @@ func isElementOf(elementType, itemType reflect.Type) bool {
 }
 
 func indirectArray(value reflect.Value) reflect.Value {
-	if value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array {
+	if isArrayPointer(value) {
 		return value.Elem()
 	}
 
 	return value
+}
+
+func isArrayPointer(value reflect.Value) bool {
+	return value.Kind() == reflect.Pointer && value.Type().Elem().Kind() == reflect.Array
+}
+
+func isNilArrayPointer(object any) bool {
+	value := reflect.ValueOf(object)
+
+	return isArrayPointer(value) && value.IsNil()
 }
 
 func elements(value reflect.Value) []reflect.Value {
@@ -227,6 +231,10 @@ func elements(value reflect.Value) []reflect.Value {
 }
 
 func unorderedDifference(actual, expected any) (extra, missing reflect.Value, reason validity) {
+	if isNilArrayPointer(actual) || isNilArrayPointer(expected) {
+		return extra, missing, nilArrayPointer
+	}
+
 	valueOfActual := indirectArray(reflect.ValueOf(actual))
 	valueOfExpected := indirectArray(reflect.ValueOf(expected))
 
@@ -354,7 +362,7 @@ func errorContains(err error, substr string) (bool, validity) {
 		return false, notError
 	}
 
-	return strings.Contains(err.Error(), substr), valid
+	return strings.Contains(string(errorText(err)), substr), valid
 }
 
 func matches(actual, pattern string) (bool, error) {

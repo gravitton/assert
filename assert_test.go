@@ -73,9 +73,11 @@ func TestEqual(t *testing.T) {
 		f := func() {}
 
 		testEqual(t, (func())(nil), (func())(nil), true)
-		testEqualInvalid(t, f, f)
-		testEqualInvalid(t, f, nil)
-		testEqualInvalid[any](t, 1, f)
+		testEqual(t, f, f, false)
+		testEqual(t, f, nil, false)
+		testEqual[any](t, 1, f, false)
+		testEqual(t, testFuncStruct{f}, testFuncStruct{f}, false)
+		testEqual(t, testFuncStruct{}, testFuncStruct{}, true)
 	})
 }
 
@@ -594,6 +596,7 @@ func TestErrorContains(t *testing.T) {
 		testErrorContains(t, errors.New("file not found"), "", true)
 		testErrorContains(t, fmt.Errorf("open: %w", errors.New("not found")), "open: not", true)
 		testErrorContains(t, testSliceErr(nil), "Slice", true)
+		testErrorContains(t, (*testPtrErr)(nil), "<nil>", true)
 	})
 	t.Run("not contains", func(t *testing.T) {
 		testErrorContains(t, errors.New("file not found"), "denied", false)
@@ -752,11 +755,18 @@ func TestMessagesWithAddresses(t *testing.T) {
 	testMessages(t, []messageCase{
 		{"Same", func(t Testing) bool { return Same(t, s, s[:1]) }, fmt.Sprintf("Should be same\n  actual: [%p] []int{1, 2}\nexpected: [%p] []int{1}", s, s)},
 		{"NotSame", func(t Testing) bool { return NotSame(t, &x, &x) }, fmt.Sprintf("Should not be same\n  actual: [%p] (*int)(%p)", &x, &x)},
-		{"Equal function", func(t Testing) bool { return Equal(t, ptr, ptr) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
-		{"NotEqual function", func(t Testing) bool { return NotEqual(t, ptr, nil) }, fmt.Sprintf("Should not be function\n  actual: (func(int) *int)(%p)", ptr)},
+		{"Equal function", func(t Testing) bool { return Equal(t, ptr, ptr) }, fmt.Sprintf("Should be equal\n  actual: (func(int) *int)(%p)\nexpected: (func(int) *int)(%p)\n    hint: values print the same but are not deeply equal", ptr, ptr)},
 		{"JSON", func(t Testing) bool { return JSON(t, c, "1") }, fmt.Sprintf("Should be marshalable\n  actual: (chan int)(%p)", c)},
 		{"nested pointer", func(t Testing) bool { return Equal(t, &p, nil) }, fmt.Sprintf("Should be equal\n  actual: &(*int)(%p)\nexpected: (**int)(nil)", p)},
 		{"pointer cycle", func(t Testing) bool { return Nil(t, cycle) }, fmt.Sprintf("Should be nil\n  actual: &(assert.selfPointer)(%p)", cycle)},
+	})
+}
+
+func TestMessages(t *testing.T) {
+	testMessages(t, []messageCase{
+		{"bytes", func(t Testing) bool { return Contains(t, []byte("abc"), 'a') }, "Should have element of same type\n  actual: []byte{0x61, 0x62, 0x63}\n element: int32(97)"},
+		{"Contains nil array pointer", func(t Testing) bool { return Contains(t, (*[3]int)(nil), 1) }, "Should be non-nil array pointer\n  actual: (*[3]int)(nil)\n element: 1"},
+		{"EqualUnordered nil array pointer", func(t Testing) bool { return EqualUnordered(t, &[1]int{1}, nil) }, "Should be non-nil array pointer\n  actual: &[1]int{1}\nexpected: (*[1]int)(nil)"},
 	})
 }
 
@@ -769,6 +779,10 @@ type messageCase struct {
 type testType string
 
 type selfPointer *selfPointer
+
+type testFuncStruct struct {
+	f func()
+}
 
 type testStruct struct {
 	a int
@@ -861,20 +875,6 @@ func testEqual[T Comparable](t *testing.T, actual, expected T, result bool) {
 	tt = newLogger()
 	if NotEqual(tt, actual, expected) != !result {
 		t.Errorf("NotEqual(%#v,%#v) should return %#v: %s", actual, expected, !result, tt.LastError)
-	}
-}
-
-func testEqualInvalid[T Comparable](t *testing.T, actual, expected T) {
-	t.Helper()
-
-	tt := newLogger()
-	if Equal(tt, actual, expected) {
-		t.Errorf("Equal(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
-	}
-
-	tt = newLogger()
-	if NotEqual(tt, actual, expected) {
-		t.Errorf("NotEqual(%#v,%#v) should return false: %s", actual, expected, tt.LastError)
 	}
 }
 

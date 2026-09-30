@@ -155,14 +155,11 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 // Equality is determined with reflect.DeepEqual: pointers are compared by the
 // values they reference. A typed nil stored in an interface is not equal to an
 // untyped nil; use [Nil] for that. NaN is not equal to itself, as with ==.
-// Non-nil functions are never equal and fail as an invalid argument; use [Nil]
-// or [NotNil] for them.
+// Functions are equal only when both are nil; use [Nil] or [NotNil] for them.
 func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if equals, reason := equal(actual, expected); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
-	} else if !equals {
+	if !equal(actual, expected) {
 		return fail(t, messages, "Should be equal", comparisonFields(actual, expected)...)
 	}
 
@@ -172,14 +169,12 @@ func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool
 // NotEqual asserts that the specified values are NOT equal.
 //
 // Equality is determined with reflect.DeepEqual: pointers are compared by the
-// values they reference. Non-nil functions are never equal and fail as an
-// invalid argument; use [Nil] or [NotNil] for them.
+// values they reference. Functions are equal only when both are nil; use [Nil]
+// or [NotNil] for them.
 func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
-	if equals, reason := equal(actual, expected); reason != valid {
-		return fail(t, messages, string(reason), field{"actual", actual}, field{"expected", expected})
-	} else if equals {
+	if equal(actual, expected) {
 		return fail(t, messages, "Should not be equal", field{"actual", actual})
 	}
 
@@ -479,7 +474,8 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 
 // ErrorContains asserts that error is NOT nil and its message contains substr.
 //
-// A typed nil stored in err (e.g. (*MyError)(nil)) is an error, as err != nil sees it.
+// A typed nil stored in err (e.g. (*MyError)(nil)) is an error, as err != nil sees it;
+// its message is <nil> when its Error method dereferences the nil receiver.
 func ErrorContains(t Testing, err error, substr string, messages ...string) bool {
 	t.Helper()
 
@@ -538,7 +534,7 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 		return fail(t, messages, "Should be valid JSON", field{"expected", text(expected)}, field{"err", errorText(err)})
 	}
 
-	if equals, _ := equal(actualJSON, expectedJSON); !equals {
+	if !equal(actualJSON, expectedJSON) {
 		return fail(t, messages, "Should be equal JSON", field{"actual", text(actual)}, field{"expected", text(expected)})
 	}
 
