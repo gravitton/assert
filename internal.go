@@ -6,6 +6,7 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 )
@@ -22,6 +23,7 @@ const (
 	notNumber        validity = "Should not be NaN"
 	notError         validity = "Should be error"
 	invalidTarget    validity = "Should have pointer to error or interface target"
+	nilFunction      validity = "Should be non-nil function"
 )
 
 func equal(actual, expected any) (bool, validity) {
@@ -239,19 +241,29 @@ func decodeJSON(s string) (any, error) {
 }
 
 func panics(fn func()) (panicked bool, value any, reason validity) {
-	value = recovered(fn)
+	if fn == nil {
+		return false, nil, nilFunction
+	}
 
-	return value != nil, value, valid
+	panicked, value = recovered(fn)
+	if _, ok := value.(*runtime.PanicNilError); ok {
+		value = nil
+	}
+
+	return panicked, value, valid
 }
 
-func recovered(fn func()) (value any) {
+func recovered(fn func()) (panicked bool, value any) {
 	defer func() {
-		value = recover()
+		if panicked {
+			value = recover()
+		}
 	}()
 
+	panicked = true
 	fn()
 
-	return nil
+	return false, nil
 }
 
 func panicsWith(value, expected any) bool {
