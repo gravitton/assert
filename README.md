@@ -28,7 +28,7 @@ Simple and lightweight testing assertion library for Go
 - **Readable failures** – aligned `actual` / `expected` output at the call site; examples show every message.
 - **Composable** – every assertion returns `bool` and takes a message prefix, so building your own is trivial.
 - **Exact** – integers compared without float rounding, NaN handled explicitly.
-- **Works with anything** that has `Helper()` and `Errorf()`: `*testing.T`, `*testing.B`, `testing.TB`, or your own.
+- **Works with anything** – `*testing.T`, `testing.TB` or any type with `Helper()` and `Errorf()`.
 
 ## Installation
 
