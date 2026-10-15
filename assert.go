@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 )
 
-// Testing is an interface wrapper around *testing.T
+// Testing is the part of *testing.T the assertions use.
 type Testing interface {
 	Helper()
 	Errorf(format string, args ...any)
 }
 
-// Fail reports a failure message via t.Errorf.
+// Fail reports message with t.Errorf and returns false.
 func Fail(t Testing, message string) bool {
 	t.Helper()
 
@@ -19,7 +19,7 @@ func Fail(t Testing, message string) bool {
 	return false
 }
 
-// Failf reports a formatted failure message via t.Errorf.
+// Failf reports the message formatted from format and args with t.Errorf and returns false.
 func Failf(t Testing, format string, args ...any) bool {
 	t.Helper()
 
@@ -50,9 +50,7 @@ func False(t Testing, condition bool, messages ...string) bool {
 	return true
 }
 
-// Nil asserts that actual is nil.
-//
-// A typed nil pointer, slice, map, channel, function or unsafe.Pointer is treated as nil.
+// Nil asserts that actual is nil. A typed nil stored in actual is nil.
 func Nil(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
@@ -63,9 +61,7 @@ func Nil(t Testing, actual any, messages ...string) bool {
 	return true
 }
 
-// NotNil asserts that actual is NOT nil.
-//
-// A typed nil pointer, slice, map, channel, function or unsafe.Pointer is treated as nil.
+// NotNil asserts that actual is not nil.
 func NotNil(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
@@ -78,12 +74,9 @@ func NotNil(t Testing, actual any, messages ...string) bool {
 
 // Zero asserts that actual is the zero value of its type.
 //
-// A type's own IsZero() bool method is used when it has one, so a zero time.Time
-// in any location is zero. That includes a method promoted from an embedded field,
-// so a struct embedding time.Time is zero whenever the embedded time is, whatever
-// its other fields hold. A pointer is zero only when it is nil, even when it
-// points to a zero value.
-// Unlike [Empty], a non-nil empty slice or map is not zero.
+// When actual is not a pointer and has an IsZero() bool method, the method decides, even when it is
+// promoted from an embedded field and ignores the other fields. A pointer is zero only when nil,
+// and a non-nil empty slice or map is not zero.
 func Zero(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
@@ -94,14 +87,7 @@ func Zero(t Testing, actual any, messages ...string) bool {
 	return true
 }
 
-// NotZero asserts that actual is NOT the zero value of its type.
-//
-// A type's own IsZero() bool method is used when it has one, so a zero time.Time
-// in any location is zero. That includes a method promoted from an embedded field,
-// so a struct embedding time.Time is zero whenever the embedded time is, whatever
-// its other fields hold. A pointer is zero only when it is nil, even when it
-// points to a zero value.
-// Unlike [Empty], a non-nil empty slice or map is not zero.
+// NotZero asserts that actual is not the zero value of its type.
 func NotZero(t Testing, actual any, messages ...string) bool {
 	t.Helper()
 
@@ -112,15 +98,11 @@ func NotZero(t Testing, actual any, messages ...string) bool {
 	return true
 }
 
-// Same asserts that two references point to the same object.
+// Same asserts that actual and expected are the same reference: equal type and address, and for
+// slices equal length and capacity.
 //
-// Both arguments must be references: pointers, slices, maps or channels.
-// Two references are the same when they have the same type and address;
-// slices must also have the same length and capacity.
-//
-// Two nil references of the same type are the same. Pointers to zero-size values
-// and slices with zero capacity may share an address even when allocated
-// separately, and are then reported as same.
+// Two nil references of one type are the same, and so may be separately allocated zero-size values
+// or zero-capacity slices.
 func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
@@ -133,11 +115,8 @@ func Same[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	return true
 }
 
-// NotSame asserts that two references do NOT point to the same object.
-//
-// Both arguments must be references: pointers, slices, maps or channels.
-// Two references are the same when they have the same type and address;
-// slices must also have the same length and capacity.
+// NotSame asserts that actual and expected are not the same reference. Unlike Same, it holds for
+// references of different types.
 func NotSame[T Reference](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
@@ -150,12 +129,10 @@ func NotSame[T Reference](t Testing, actual, expected T, messages ...string) boo
 	return true
 }
 
-// Equal asserts that two objects are equal.
+// Equal asserts that actual and expected are deeply equal.
 //
-// Equality is determined with reflect.DeepEqual: pointers are compared by the
-// values they reference. A typed nil stored in an interface is not equal to an
-// untyped nil; use [Nil] for that. NaN is not equal to itself, as with ==.
-// Functions are equal only when both are nil; use [Nil] or [NotNil] for them.
+// Pointers are compared by what they point to, a typed nil stored in an interface differs from an
+// untyped nil, NaN differs from itself, and functions are equal only when both are nil.
 func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
@@ -166,11 +143,7 @@ func Equal[T Comparable](t Testing, actual, expected T, messages ...string) bool
 	return true
 }
 
-// NotEqual asserts that the specified values are NOT equal.
-//
-// Equality is determined with reflect.DeepEqual: pointers are compared by the
-// values they reference. Functions are equal only when both are nil; use [Nil]
-// or [NotNil] for them.
+// NotEqual asserts that actual and expected are not deeply equal.
 func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) bool {
 	t.Helper()
 
@@ -181,9 +154,10 @@ func NotEqual[T Comparable](t Testing, actual, expected T, messages ...string) b
 	return true
 }
 
-// EqualDelta asserts that two numeric values differ by at most delta.
+// EqualDelta asserts that actual and expected differ by at most delta.
 //
-// Fails when delta is negative or NaN. NaN is only equal to NaN.
+// Integers are compared exactly. Two NaNs are equal; a NaN and a number never are. It fails for a
+// negative or NaN delta.
 func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
@@ -196,9 +170,7 @@ func EqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...str
 	return true
 }
 
-// NotEqualDelta asserts that two numeric values differ by more than delta.
-//
-// Fails when delta is negative or NaN. NaN is only equal to NaN.
+// NotEqualDelta asserts that actual and expected differ by more than delta.
 func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...string) bool {
 	t.Helper()
 
@@ -211,9 +183,7 @@ func NotEqualDelta[T Numeric](t Testing, actual, expected, delta T, messages ...
 	return true
 }
 
-// Greater asserts that actual is greater than bound.
-//
-// Fails when either value is NaN.
+// Greater asserts that actual is greater than bound. It fails for a NaN on either side.
 func Greater[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
@@ -226,9 +196,8 @@ func Greater[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	return true
 }
 
-// GreaterOrEqual asserts that actual is greater than or equal to bound.
-//
-// Fails when either value is NaN.
+// GreaterOrEqual asserts that actual is greater than or equal to bound. It fails for a NaN on
+// either side.
 func GreaterOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
@@ -241,9 +210,7 @@ func GreaterOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) b
 	return true
 }
 
-// Less asserts that actual is less than bound.
-//
-// Fails when either value is NaN.
+// Less asserts that actual is less than bound. It fails for a NaN on either side.
 func Less[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
@@ -256,9 +223,8 @@ func Less[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	return true
 }
 
-// LessOrEqual asserts that actual is less than or equal to bound.
-//
-// Fails when either value is NaN.
+// LessOrEqual asserts that actual is less than or equal to bound. It fails for a NaN on either
+// side.
 func LessOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) bool {
 	t.Helper()
 
@@ -271,9 +237,7 @@ func LessOrEqual[T Ordered](t Testing, actual, bound T, messages ...string) bool
 	return true
 }
 
-// Length asserts that actual has given length.
-//
-// Works with strings, arrays, pointers to arrays, slices, maps and channels. String length is measured in bytes, not runes.
+// Length asserts that actual has length expected, in bytes for a string.
 func Length[S Iterable](t Testing, actual S, expected int, messages ...string) bool {
 	t.Helper()
 
@@ -287,8 +251,6 @@ func Length[S Iterable](t Testing, actual S, expected int, messages ...string) b
 }
 
 // Empty asserts that actual has zero length.
-//
-// Works with strings, arrays, pointers to arrays, slices, maps and channels. String length is measured in bytes, not runes.
 func Empty[S Iterable](t Testing, actual S, messages ...string) bool {
 	t.Helper()
 
@@ -302,8 +264,6 @@ func Empty[S Iterable](t Testing, actual S, messages ...string) bool {
 }
 
 // NotEmpty asserts that actual has non-zero length.
-//
-// Works with strings, arrays, pointers to arrays, slices, maps and channels. String length is measured in bytes, not runes.
 func NotEmpty[S Iterable](t Testing, actual S, messages ...string) bool {
 	t.Helper()
 
@@ -316,11 +276,11 @@ func NotEmpty[S Iterable](t Testing, actual S, messages ...string) bool {
 	return true
 }
 
-// Contains asserts that actual contains given element.
+// Contains asserts that actual contains element: a substring of a string, or an element of an
+// array, array pointer, slice or the values of a map, not its keys.
 //
-// Works with strings, arrays, array pointers, slices and map values. The element
-// must have the element type of actual, or be assignable to it when that is an
-// interface type. A substring must have the same type as the string.
+// element must have the type of the elements of actual, or be assignable to it when that is an
+// interface; a substring must have the type of the string. It fails for a nil array pointer.
 func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
@@ -335,11 +295,7 @@ func Contains[S Iterable, E Comparable](t Testing, actual S, element E, messages
 	return true
 }
 
-// NotContains asserts that actual does NOT contain given element.
-//
-// Works with strings, arrays, array pointers, slices and map values. The element
-// must have the element type of actual, or be assignable to it when that is an
-// interface type. A substring must have the same type as the string.
+// NotContains asserts that actual does not contain element.
 func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messages ...string) bool {
 	t.Helper()
 
@@ -354,10 +310,11 @@ func NotContains[S Iterable, E Comparable](t Testing, actual S, element E, messa
 	return true
 }
 
-// EqualUnordered asserts that two arrays, array pointers or slices have the same elements in any order.
+// EqualUnordered asserts that the arrays, array pointers or slices actual and expected have the
+// same elements in any order, each occurring as often in both.
 //
-// Elements are compared with reflect.DeepEqual and each must occur the same number
-// of times in both. A nil slice and an empty slice are equal.
+// actual and expected must have the same type. A nil slice equals an empty one. It fails for a nil
+// array pointer.
 func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...string) bool {
 	t.Helper()
 
@@ -372,10 +329,8 @@ func EqualUnordered[S Iterable](t Testing, actual, expected S, messages ...strin
 	return true
 }
 
-// HasPrefix asserts that actual begins with prefix.
-//
-// Works with strings and slices. Slice elements are compared with reflect.DeepEqual.
-// Arrays are not accepted: both arguments share one type, so they would have the same length.
+// HasPrefix asserts that the string or slice actual begins with prefix. actual and prefix must
+// have the same type.
 func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool {
 	t.Helper()
 
@@ -390,10 +345,8 @@ func HasPrefix[S Iterable](t Testing, actual, prefix S, messages ...string) bool
 	return true
 }
 
-// HasSuffix asserts that actual ends with suffix.
-//
-// Works with strings and slices. Slice elements are compared with reflect.DeepEqual.
-// Arrays are not accepted: both arguments share one type, so they would have the same length.
+// HasSuffix asserts that the string or slice actual ends with suffix. actual and suffix must have
+// the same type.
 func HasSuffix[S Iterable](t Testing, actual, suffix S, messages ...string) bool {
 	t.Helper()
 
@@ -408,9 +361,7 @@ func HasSuffix[S Iterable](t Testing, actual, suffix S, messages ...string) bool
 	return true
 }
 
-// Error asserts that error is NOT nil.
-//
-// A typed nil stored in err (e.g. (*MyError)(nil)) is an error, as err != nil sees it.
+// Error asserts that err is not nil. A typed nil stored in err is not nil, as with err != nil.
 func Error(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
@@ -421,9 +372,7 @@ func Error(t Testing, err error, messages ...string) bool {
 	return true
 }
 
-// NoError asserts that error is nil.
-//
-// A typed nil stored in err (e.g. (*MyError)(nil)) is an error, as err != nil sees it.
+// NoError asserts that err is nil.
 func NoError(t Testing, err error, messages ...string) bool {
 	t.Helper()
 
@@ -434,7 +383,7 @@ func NoError(t Testing, err error, messages ...string) bool {
 	return true
 }
 
-// ErrorIs asserts that error matches given target according to errors.Is.
+// ErrorIs asserts that errors.Is(err, target) holds.
 func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
@@ -445,7 +394,7 @@ func ErrorIs(t Testing, err error, target error, messages ...string) bool {
 	return true
 }
 
-// NotErrorIs asserts that error does NOT match given target according to errors.Is.
+// NotErrorIs asserts that errors.Is(err, target) does not hold.
 func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	t.Helper()
 
@@ -456,10 +405,10 @@ func NotErrorIs(t Testing, err error, target error, messages ...string) bool {
 	return true
 }
 
-// ErrorAs asserts that error can be assigned to target according to errors.As.
+// ErrorAs asserts that errors.As(err, target) holds, which sets target to the matched error.
 //
-// As with errors.As, target must be a non-nil pointer to a type implementing
-// error or to any interface type; otherwise ErrorAs fails.
+// It fails, rather than panics, for a target that is not a non-nil pointer to an error type or an
+// interface.
 func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 	t.Helper()
 
@@ -472,10 +421,10 @@ func ErrorAs(t Testing, err error, target any, messages ...string) bool {
 	return true
 }
 
-// ErrorContains asserts that error is NOT nil and its message contains substr.
+// ErrorContains asserts that err is not nil and its message contains substr.
 //
-// A typed nil stored in err (e.g. (*MyError)(nil)) is an error, as err != nil sees it;
-// its message is <nil> when its Error method dereferences the nil receiver.
+// A typed nil stored in err is not nil; its message is <nil> when its Error method dereferences
+// the receiver.
 func ErrorContains(t Testing, err error, substr string, messages ...string) bool {
 	t.Helper()
 
@@ -488,7 +437,8 @@ func ErrorContains(t Testing, err error, substr string, messages ...string) bool
 	return true
 }
 
-// Matches asserts that a string matches the given regular expression.
+// Matches asserts that actual matches the regular expression pattern, anywhere unless the pattern
+// is anchored. It fails for an invalid pattern.
 func Matches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
@@ -501,7 +451,7 @@ func Matches(t Testing, actual, pattern string, messages ...string) bool {
 	return true
 }
 
-// NotMatches asserts that a string does NOT match the given regular expression.
+// NotMatches asserts that actual does not match the regular expression pattern.
 func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	t.Helper()
 
@@ -514,13 +464,11 @@ func NotMatches(t Testing, actual, pattern string, messages ...string) bool {
 	return true
 }
 
-// EqualJSON asserts that JSON strings are semantically equal.
+// EqualJSON asserts that the JSON documents actual and expected are deeply equal once decoded.
 //
-// Both strings are decoded as encoding/json decodes into any: numbers become
-// float64, so 1.0 equals 1 and 1e2 equals 100, but integers beyond 2^53 may
-// compare equal when they differ, and numbers beyond the float64 range are
-// reported as invalid JSON. To compare such numbers exactly, decode into a
-// struct and use [Equal]. The last of duplicate keys wins.
+// Both are decoded into any, so key order and whitespace do not matter, the last duplicate key
+// wins, and numbers become float64: integers beyond 2^53 may compare equal when they differ, and
+// numbers beyond the float64 range are invalid JSON.
 func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	t.Helper()
 
@@ -541,10 +489,8 @@ func EqualJSON(t Testing, actual, expected string, messages ...string) bool {
 	return true
 }
 
-// JSON asserts that actual can be marshaled to expected JSON string.
-//
-// actual is marshaled with json.Marshal, so a []byte becomes a base64 string.
-// To compare JSON held in a []byte, use EqualJSON(t, string(actual), expected).
+// JSON asserts that actual marshals with json.Marshal to a document equal to expected under
+// EqualJSON. A []byte marshals to a base64 string.
 func JSON(t Testing, actual any, expected string, messages ...string) bool {
 	t.Helper()
 
@@ -556,10 +502,8 @@ func JSON(t Testing, actual any, expected string, messages ...string) bool {
 	return EqualJSON(t, string(s), expected, messages...)
 }
 
-// Panics asserts that fn panics.
-//
-// A panic(nil) is recognised regardless of the GODEBUG panicnil setting.
-// Fails when fn is nil.
+// Panics asserts that fn panics. A panic(nil) counts whatever the GODEBUG panicnil setting. It
+// fails for a nil fn.
 func Panics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 
@@ -572,12 +516,10 @@ func Panics(t Testing, fn func(), messages ...string) bool {
 	return true
 }
 
-// PanicsWith asserts that fn panics with the expected value.
+// PanicsWith asserts that fn panics with a value deeply equal to expected or, when expected is an
+// error, matching it under errors.Is.
 //
-// The panic value must be deeply equal to expected. When expected is an error,
-// a panic value matching it according to errors.Is is accepted as well.
-// A panic(nil) is reported as a nil value regardless of the GODEBUG panicnil setting.
-// Fails when fn is nil.
+// The value of a panic(nil) is nil whatever the GODEBUG panicnil setting. It fails for a nil fn.
 func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	t.Helper()
 
@@ -592,10 +534,7 @@ func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {
 	return true
 }
 
-// NotPanics asserts that fn does NOT panic.
-//
-// A panic(nil) is recognised regardless of the GODEBUG panicnil setting.
-// Fails when fn is nil.
+// NotPanics asserts that fn does not panic.
 func NotPanics(t Testing, fn func(), messages ...string) bool {
 	t.Helper()
 

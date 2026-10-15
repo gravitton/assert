@@ -1,10 +1,8 @@
-// Package assert provides a simple and lightweight testing assertion library for Go.
+// Package assert provides assertions for Go tests.
 //
-// It works with any type that implements the [Testing] interface, which *testing.T satisfies.
-// All assertion functions call t.Helper() so that failures point to the call site in your
-// test, not inside this package.
-//
-// # Basic usage
+// An assertion takes a [Testing], which *testing.T satisfies, and calls t.Helper, so a failure
+// points to the calling test. It reports a failure with t.Errorf, letting the test continue, and
+// returns true on success and false on failure.
 //
 //	func TestFoo(t *testing.T) {
 //		assert.True(t, ok)
@@ -14,45 +12,45 @@
 //		assert.JSON(t, obj, `{"key":"value"}`)
 //	}
 //
-// # Return values
+// # Rules
 //
-// Every assertion returns bool: true on success, false on failure. This lets you
-// short-circuit or accumulate failures in custom assertion helpers.
+// Values are compared with reflect.DeepEqual unless an assertion says otherwise. An argument an
+// assertion cannot check, such as a value of the wrong kind or two values of different types,
+// fails it rather than passing or panicking. Each negation, NotX or NoError, follows the rules of
+// its positive and fails on the same invalid arguments.
 //
-// # Custom messages
+// # Messages
 //
-// All assertions accept an optional trailing messages ...string argument. The strings
-// are concatenated and prepended to the failure output, making it easy to add context
-// or build composable helpers. No separator is inserted, neither between the strings
-// nor before the failure message, so each string carries its own: a nested helper
-// appends "Min." and the leaf appends "X: ".
+// Every assertion except [Fail] and [Failf] accepts trailing messages, joined without a separator
+// and prepended to the failure, so each string carries its own: a nested helper appends "Min."
+// and the leaf appends "X: ".
 //
 //	assert.Equal(t, actual.X, expected.X, "Min.", "X: ")
 //	// Min.X: Should be equal
 //	//   actual: 1
 //	// expected: 2
 //
-// # Available assertions
+// # Assertions
 //
 //   - [True] / [False] — boolean condition
-//   - [Nil] / [NotNil] — value is nil / non-nil, including typed nil references
-//   - [Zero] / [NotZero] — value is / is not the zero value of its type
-//   - [Equal] / [NotEqual] — deep value equality
-//   - [EqualDelta] / [NotEqualDelta] — numeric equality within a tolerance
+//   - [Nil] / [NotNil] — nil, including a typed nil
+//   - [Zero] / [NotZero] — zero value of its type
+//   - [Equal] / [NotEqual] — deep equality
+//   - [EqualDelta] / [NotEqualDelta] — numeric equality within a delta
 //   - [Greater] / [GreaterOrEqual] / [Less] / [LessOrEqual] — ordering of numbers and strings
-//   - [Same] / [NotSame] — reference identity (same type and address)
-//   - [Length] / [Empty] / [NotEmpty] — length of a string, array, array pointer, slice, map, or channel
-//   - [Contains] / [NotContains] — membership in a string, array, array pointer, slice, or map values
-//   - [EqualUnordered] — arrays, array pointers or slices have the same elements in any order
+//   - [Same] / [NotSame] — reference identity
+//   - [Length] / [Empty] / [NotEmpty] — length
+//   - [Contains] / [NotContains] — substring, or element of an array, slice or map values
+//   - [EqualUnordered] — same elements in any order
 //   - [HasPrefix] / [HasSuffix] — string or slice begins / ends with another
-//   - [Error] / [NoError] — error is non-nil / nil
-//   - [ErrorIs] / [NotErrorIs] — error matches / does not match a target with errors.Is
-//   - [ErrorAs] — error is assignable to a target with errors.As
+//   - [Error] / [NoError] — non-nil / nil error
+//   - [ErrorIs] / [NotErrorIs] — errors.Is
+//   - [ErrorAs] — errors.As
 //   - [ErrorContains] — error message contains a substring
-//   - [Matches] / [NotMatches] — string matches / does not match a regular expression
-//   - [EqualJSON] — semantic JSON string equality
-//   - [JSON] — object marshals to an expected JSON string
-//   - [Panics] / [NotPanics] — function panics / does not panic
-//   - [PanicsWith] — function panics with an expected value or error
-//   - [Fail] / [Failf] — unconditional failure with a custom message
+//   - [Matches] / [NotMatches] — regular expression
+//   - [EqualJSON] — equal JSON documents
+//   - [JSON] — value marshals to a JSON document
+//   - [Panics] / [NotPanics] — function panics
+//   - [PanicsWith] — function panics with a value
+//   - [Fail] / [Failf] — unconditional failure
 package assert

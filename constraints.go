@@ -2,17 +2,15 @@ package assert
 
 import "cmp"
 
-// Comparable documents that a value is compared with reflect.DeepEqual.
-// It does not restrict the type set; every type satisfies it.
+// Comparable documents an argument compared with reflect.DeepEqual.
+// It does not restrict the type set.
 type Comparable interface {
 	any
 }
 
-// Reference documents that a value is expected to be a pointer, slice, map or channel.
-// It does not restrict the type set; every type satisfies it and the kind is checked at runtime.
-//
-// Functions are deliberately not references: two function values have no comparable
-// identity in Go, so [Same] and [NotSame] reject them even though [Nil] accepts them.
+// Reference documents an argument that must be a pointer, slice, map or channel.
+// It does not restrict the type set; the kind is checked at runtime. A function is not a
+// reference, since Go gives function values no identity.
 type Reference interface {
 	any
 }
@@ -27,8 +25,9 @@ type Numeric interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64
 }
 
-// Iterable documents that a value is expected to be a string, array, array pointer, slice, map or channel.
-// It does not restrict the type set; every type satisfies it and the kind is checked at runtime.
+// Iterable documents an argument that must be a string, array, array pointer, slice, map or
+// channel. It does not restrict the type set; the kind is checked at runtime. An array pointer
+// stands for the array it points to.
 type Iterable interface {
 	any
 }
