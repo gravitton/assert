@@ -24,11 +24,9 @@ Simple and lightweight testing assertion library for Go
 ## Features
 
 - **Zero dependencies** – standard library only.
-- **Generic** – both sides of a comparison share one type, so untyped constants take the type of the value under test;
-  named types and `time.Duration` just work.
-- **Readable failures** – aligned `actual` / `expected` output, pointing at the call site in your test; every
-  assertion's example on pkg.go.dev shows its failure messages.
-- **Composable** – every assertion returns `bool` and takes an optional message prefix, so building your own is trivial.
+- **Generic** – both sides share one type, so untyped constants take the type of the value under test.
+- **Readable failures** – aligned `actual` / `expected` output at the call site; examples show every message.
+- **Composable** – every assertion returns `bool` and takes a message prefix, so building your own is trivial.
 - **Exact** – integers compared without float rounding, NaN handled explicitly.
 - **Works with anything** that has `Helper()` and `Errorf()`: `*testing.T`, `*testing.B`, `testing.TB`, or your own.
 
