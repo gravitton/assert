@@ -517,7 +517,7 @@ func Panics(t Testing, fn func(), messages ...string) bool {
 }
 
 // PanicsWith asserts that fn panics with a value deeply equal to expected or, when expected is an
-// error, matching it under errors.Is.
+// error, matching it under errors.Is, and when expected is a string, an error with that message.
 //
 // The value of a panic(nil) is nil whatever the GODEBUG panicnil setting. It fails for a nil fn.
 func PanicsWith(t Testing, fn func(), expected any, messages ...string) bool {

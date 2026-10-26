@@ -729,6 +729,9 @@ func TestPanicsWith(t *testing.T) {
 		testPanicsWith(t, func() { panic("not-an-error") }, err, false)
 		testPanicsWith(t, func() { panic(testSliceErr{"a"}) }, testSliceErr{"a"}, true)
 		testPanicsWith(t, func() { panic(testSliceErr{"a"}) }, testSliceErr{"b"}, false)
+		testPanicsWith(t, func() { panic(errors.New("boom")) }, "boom", true)
+		testPanicsWith(t, func() { panic(errors.New("boom")) }, "bang", false)
+		testPanicsWith(t, func() { panic(testSliceErr{"a"}) }, testSliceErr{"a"}.Error(), true)
 	})
 	t.Run("nil", func(t *testing.T) {
 		testPanicsWith(t, func() { panic(nil) }, nil, true)

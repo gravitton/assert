@@ -503,6 +503,9 @@ func ExamplePanicsWith() {
 		panic(io.EOF)
 	}, io.ErrUnexpectedEOF)
 	assert.PanicsWith(t, func() {
+		panic(io.EOF)
+	}, "unexpected EOF")
+	assert.PanicsWith(t, func() {
 		zero := 0
 		_ = 1 / zero
 	}, "integer divide by zero")
@@ -520,6 +523,10 @@ func ExamplePanicsWith() {
 	//      msg: EOF
 	//   actual: &errors.errorString{s:"EOF"}
 	// expected: &errors.errorString{s:"unexpected EOF"}
+	// Should panic with value
+	//      msg: EOF
+	//   actual: &errors.errorString{s:"EOF"}
+	// expected: "unexpected EOF"
 	// Should panic with value
 	//      msg: runtime error: integer divide by zero
 	//   actual: runtime.errorString("integer divide by zero")

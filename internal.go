@@ -403,8 +403,14 @@ func recovered(fn func()) (panicked bool, value any) {
 }
 
 func panicsWith(value, expected any) bool {
-	if target, ok := expected.(error); ok {
-		if err, ok := value.(error); ok && errors.Is(err, target) {
+	err, isError := value.(error)
+	switch target := expected.(type) {
+	case error:
+		if isError && errors.Is(err, target) {
+			return true
+		}
+	case string:
+		if isError && string(errorText(err)) == target {
 			return true
 		}
 	}

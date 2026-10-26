@@ -103,6 +103,7 @@ assert.ErrorContains(t, err, "permission denied")
 assert.Panics(t, func() { div(1, 0) })
 assert.PanicsWith(t, func() { stack.Pop() }, "pop from empty stack")
 assert.PanicsWith(t, func() { must(err) }, err) // errors.Is on the panic value
+assert.PanicsWith(t, func() { must(err) }, "permission denied") // the message of the panic error
 assert.NotPanics(t, func() { div(1, 1) })
 ```
 

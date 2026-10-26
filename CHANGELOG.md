@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.6.0...main)
+### Changed
+- `PanicsWith` matches a string against the message of an error the function panics with, so a panic of a private error type can be asserted by its message
 
 ## [v1.6.0](https://github.com/gravitton/assert/compare/v1.5.0...v1.6.0) (2026-09-30)
 ### Added
