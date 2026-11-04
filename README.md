@@ -12,6 +12,7 @@
 [![Build Status][ico-workflow]][link-workflow]
 [![Coverage Status][ico-coverage]][link-coverage]
 [![Go Dev Reference][ico-go-dev-reference]][link-go-dev-reference]
+[![Go Version][ico-go-version]][link-go]
 [![Software License][ico-license]][link-licence]
 
 Simple and lightweight testing assertion library for Go
@@ -173,14 +174,16 @@ Full reference: [pkg.go.dev][link-go-dev-reference].
 The MIT License (MIT). Please see [License File][link-licence] for more information.
 
 
-[ico-license]:              https://img.shields.io/github/license/gravitton/assert.svg?style=flat-square&color=blue
+[ico-license]:              https://img.shields.io/github/license/gravitton/assert.svg?style=flat-square&color=lightgrey
 [ico-workflow]:             https://img.shields.io/github/actions/workflow/status/gravitton/assert/main.yml?branch=main&style=flat-square
-[ico-release]:              https://img.shields.io/github/v/release/gravitton/assert?style=flat-square&color=blue
-[ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-blue?style=flat-square
+[ico-release]:              https://img.shields.io/github/v/release/gravitton/assert?style=flat-square&color=e8883a
+[ico-go-version]:           https://img.shields.io/github/go-mod/go-version/gravitton/assert?style=flat-square&color=007d9c
+[ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square
 [ico-coverage]:             https://img.shields.io/coverallsCoverage/github/gravitton/assert?style=flat-square
 
 [link-author]:              https://github.com/gravitton
 [link-release]:             https://github.com/gravitton/assert/releases
+[link-go]:                  https://go.dev/doc/devel/release
 [link-contributors]:        https://github.com/gravitton/assert/contributors
 [link-licence]:             ./LICENSE.md
 [link-changelog]:           ./CHANGELOG.md
