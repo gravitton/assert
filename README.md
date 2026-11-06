@@ -15,12 +15,11 @@
 [![Go Version][ico-go-version]][link-go]
 [![Software License][ico-license]][link-licence]
 
-Simple and lightweight testing assertion library for Go
+Lightweight test assertions
 
 <hr>
 
 </div>
-
 
 ## Features
 
@@ -181,12 +180,10 @@ The MIT License (MIT). Please see [License File][link-licence] for more informat
 [ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square
 [ico-coverage]:             https://img.shields.io/coverallsCoverage/github/gravitton/assert?style=flat-square
 
-[link-author]:              https://github.com/gravitton
 [link-release]:             https://github.com/gravitton/assert/releases
 [link-go]:                  https://go.dev/doc/devel/release
 [link-contributors]:        https://github.com/gravitton/assert/contributors
 [link-licence]:             ./LICENSE.md
-[link-changelog]:           ./CHANGELOG.md
 [link-workflow]:            https://github.com/gravitton/assert/actions
 [link-go-dev-reference]:    https://pkg.go.dev/github.com/gravitton/assert
 [link-coverage]:            https://coveralls.io/github/gravitton/assert
