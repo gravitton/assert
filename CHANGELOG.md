@@ -7,14 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.7.0...main)
+
 ### Changed
 - CI runs the shared workflow of `gravitton/.github`, adding arm64 and the fused multiply-add check, and can be started by hand
 
 ## [v1.7.0](https://github.com/gravitton/assert/compare/v1.6.0...v1.7.0) (2026-10-27)
+
 ### Changed
 - `PanicsWith` matches a string against the message of an error the function panics with, so a panic of a private error type can be asserted by its message
 
 ## [v1.6.0](https://github.com/gravitton/assert/compare/v1.5.0...v1.6.0) (2026-09-30)
+
 ### Added
 - `Zero` and `NotZero`, using the value's own `IsZero` method when it has one
 - `EqualUnordered`, comparing arrays, array pointers or slices as multisets and reporting extra and missing elements
@@ -24,9 +27,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Runnable examples showing the failure messages of each assertion
 
 ### Changed
-- **Breaking:** `Error`, `NoError` and `ErrorContains` treat a typed nil stored in an `error` as an error, as `err != nil` does
-- **Breaking:** `EqualJSON` and `JSON` compare numbers as `float64` instead of exactly; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
-- **Breaking:** `Contains` and `NotContains` on a string require the substring to have the string's type
+- **breaking** `Error`, `NoError` and `ErrorContains` treat a typed nil stored in an `error` as an error, as `err != nil` does
+- **breaking** `EqualJSON` and `JSON` compare numbers as `float64` instead of exactly; integers beyond 2^53 may compare equal and numbers beyond the `float64` range are invalid JSON
+- **breaking** `Contains` and `NotContains` on a string require the substring to have the string's type
 - `Same` reports references of different types as `Should have same type` instead of `Should be same`
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` report a NaN as `Should not be NaN`
 - `ErrorAs` fails on an invalid target instead of panicking
@@ -52,6 +55,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `EqualJSON` and `JSON` accepted non-JSON whitespace such as `\f` after the top-level value
 
 ## [v1.5.0](https://github.com/gravitton/assert/compare/v1.4.0...v1.5.0) (2026-09-17)
+
 ### Added
 - `Nil` and `NotNil`; typed nil pointers, slices, maps, channels, functions and `unsafe.Pointer` count as nil
 - `ErrorAs`, mirroring `errors.As`
@@ -59,8 +63,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Ordered` constraint; `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` accept any `cmp.Ordered` type, strings included
 
 ### Changed
-- **Breaking:** `Panics` no longer takes an expected value; use `PanicsWith`
-- **Breaking:** `Iterable` has no type parameter; `Comparable`, `Reference` and `Iterable` are descriptive only
+- **breaking** `Panics` no longer takes an expected value; use `PanicsWith`
+- **breaking** `Iterable` has no type parameter; `Comparable`, `Reference` and `Iterable` are descriptive only
 - `Same` and `NotSame` require the same type and address, and slices the same length and capacity; `unsafe.Pointer` and functions are not references
 - `Greater`, `GreaterOrEqual`, `Less` and `LessOrEqual` fail on NaN
 - `EqualDelta` and `NotEqualDelta` compare integers exactly, accept `uintptr`, and fail on a negative or NaN delta instead of panicking or never matching
@@ -78,20 +82,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `Error` and `NoError` treat a typed nil error as nil
 
 ## [v1.4.0](https://github.com/gravitton/assert/compare/v1.3.0...v1.4.0) (2026-08-25)
+
 ### Changed
 - Require Go 1.27
 
 ## [v1.3.0](https://github.com/gravitton/assert/compare/v1.2.1...v1.3.0) (2026-05-13)
+
 ### Added
 - Added `Panics` and `NotPanics` assert methods for panic detection; `Panics` accepts an optional expected value — `nil` skips value validation, an `error` validates with `errors.Is`, anything else uses deep equality
 
 
 ## [v1.2.1](https://github.com/gravitton/assert/compare/v1.2.0...v1.2.1) (2026-04-27)
+
 ### Changed
 - Improve error formatting in `Error` assert methods for better readability
 
 
 ## [v1.2.0](https://github.com/gravitton/assert/compare/v1.1.0...v1.2.0) (2026-04-22)
+
 ### Added
 - Added `Greater`, `GreaterOrEqual`, `Less`, and `LessOrEqual` assert methods for numeric comparison
 - Added `Empty` and `NotEmpty` assert methods for zero-length checks on strings, slices, maps, and channels
@@ -102,11 +110,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v1.1.0](https://github.com/gravitton/assert/compare/v1.0.0...v1.1.0) (2026-04-22)
+
 ### Added
 - Added `Matches` and `NotMatches` assert methods for regexp matching on strings
 
 
-## v1.0.0 (2025-10-17)
+## [v1.0.0](https://github.com/gravitton/assert/commits/v1.0.0) (2025-10-17)
+
 ### Added
 - Added new assert methods
   - `True`
