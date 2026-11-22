@@ -110,7 +110,8 @@ assert.NotPanics(t, func() { div(1, 1) })
 ### Allocations
 
 ```go
-assert.Allocates(t, func() { sink = grid.Path(start, goal) }, 1) // passes under the race detector
+assert.Allocates(t, func() { sink = grid.Path(start, goal) }, 1) // a hundred runs; passes under the race detector
+assert.AllocatesRuns(t, func() { deque.PushBack(tile) }, 0, 1) // one run, of a function that changes state
 ```
 
 ### JSON

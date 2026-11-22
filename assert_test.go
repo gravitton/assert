@@ -747,24 +747,38 @@ func TestNotPanics(t *testing.T) {
 }
 
 func TestAllocates(t *testing.T) {
-	allocate := func() {
-		sinkInts = make([]int, 8)
-	}
+	t.Run("agrees with a hundred runs", func(t *testing.T) {
+		for _, expected := range []int{0, 1} {
+			tt, other := newLogger(), newLogger()
+			held := Allocates(tt, allocateOnce, expected)
+			runs := AllocatesRuns(other, allocateOnce, expected, 100)
+			if held != runs || tt.LastError != other.LastError {
+				t.Errorf("Allocates(%d) should agree with AllocatesRuns(%d, 100): %s, %s", expected, expected, tt.LastError, other.LastError)
+			}
+		}
+	})
+}
 
+func TestAllocatesRuns(t *testing.T) {
 	t.Run("passes for the allocations of the function", func(t *testing.T) {
-		testAllocates(t, func() {}, 0, true)
-		testAllocates(t, allocate, 1, true)
+		testAllocatesRuns(t, func() {}, 0, 100, true)
+		testAllocatesRuns(t, allocateOnce, 1, 1, true)
+		testAllocatesRuns(t, allocateOnce, 1, 100, true)
 	})
 	t.Run("fails for other allocations, except under the race detector", func(t *testing.T) {
-		testAllocates(t, allocate, 0, race)
+		testAllocatesRuns(t, allocateOnce, 0, 100, race)
+	})
+	t.Run("fails for runs below one", func(t *testing.T) {
+		testAllocatesRuns(t, allocateOnce, 0, 0, false)
+		testAllocatesRuns(t, allocateOnce, 0, -1, false)
 	})
 	t.Run("fails for a nil function", func(t *testing.T) {
-		testAllocates(t, nil, 0, false)
+		testAllocatesRuns(t, nil, 0, 100, false)
 	})
 	t.Run("fails in a parallel test", func(t *testing.T) {
 		t.Parallel()
 
-		testAllocates(t, func() {}, 0, false)
+		testAllocatesRuns(t, func() {}, 0, 100, false)
 	})
 }
 
@@ -1093,12 +1107,12 @@ func testNotPanics(t *testing.T, fn func(), result bool) {
 	}
 }
 
-func testAllocates(t *testing.T, fn func(), expected int, result bool) {
+func testAllocatesRuns(t *testing.T, fn func(), expected, runs int, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if Allocates(tt, fn, expected) != result {
-		t.Errorf("Allocates(%d) should return %#v: %s", expected, result, tt.LastError)
+	if AllocatesRuns(tt, fn, expected, runs) != result {
+		t.Errorf("AllocatesRuns(%d, %d) should return %#v: %s", expected, runs, result, tt.LastError)
 	}
 }
 
@@ -1145,6 +1159,10 @@ func bufferedChan(n int) chan int {
 
 func ptr(i int) *int {
 	return &i
+}
+
+func allocateOnce() {
+	sinkInts = make([]int, 8)
 }
 
 type messageCase struct {

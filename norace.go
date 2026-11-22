@@ -4,6 +4,6 @@ package assert
 
 import "testing"
 
-func allocationsOf(fn func()) (allocations int, counted bool) {
-	return int(testing.AllocsPerRun(100, fn)), true
+func allocationsOf(runs int, fn func()) (allocations int, counted bool) {
+	return int(testing.AllocsPerRun(runs, fn)), true
 }

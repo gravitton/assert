@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.8.0...main)
 
+### Added
+- `AllocatesRuns`, `Allocates` over a given number of runs, so a pin of a function that changes state can count a single run
+
 ## [v1.8.0](https://github.com/gravitton/assert/compare/v1.7.0...v1.8.0) (2026-11-22)
 
 ### Added

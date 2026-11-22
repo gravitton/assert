@@ -2,6 +2,6 @@
 
 package assert
 
-func allocationsOf(fn func()) (allocations int, counted bool) {
+func allocationsOf(runs int, fn func()) (allocations int, counted bool) {
 	return 0, false
 }

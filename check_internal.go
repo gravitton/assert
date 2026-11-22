@@ -29,6 +29,7 @@ const (
 	nilFunction      validity = "Should be non-nil function"
 	nilArrayPointer  validity = "Should be non-nil array pointer"
 	parallelTest     validity = "Should not run in parallel test"
+	invalidRuns      validity = "Should have positive runs"
 )
 
 func isNil(object any) bool {

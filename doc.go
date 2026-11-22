@@ -52,6 +52,6 @@
 //   - [JSON] — value marshals to a JSON document
 //   - [Panics] / [NotPanics] — function panics
 //   - [PanicsWith] — function panics with a value
-//   - [Allocates] — allocations of a function, skipped under the race detector
+//   - [Allocates] / [AllocatesRuns] — allocations of a function, skipped under the race detector
 //   - [Fail] / [Failf] — unconditional failure
 package assert
