@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/assert/compare/v1.7.0...main)
 
+### Added
+- `Allocates`, counting the allocations of a function with `testing.AllocsPerRun` and passing under the race detector
+
 ### Changed
 - CI runs the shared workflow of `gravitton/.github`, adding arm64 and the fused multiply-add check, and can be started by hand
 

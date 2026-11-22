@@ -746,6 +746,17 @@ func TestNotPanics(t *testing.T) {
 	testNotPanics(t, nil, false)
 }
 
+func TestAllocates(t *testing.T) {
+	allocate := func() {
+		sinkInts = make([]int, 8)
+	}
+
+	testAllocates(t, func() {}, 0, true)
+	testAllocates(t, allocate, 1, true)
+	testAllocates(t, allocate, 0, race)
+	testAllocates(t, nil, 0, false)
+}
+
 func TestMessagesWithAddresses(t *testing.T) {
 	x := 1
 	p := &x
@@ -773,69 +784,6 @@ func TestMessages(t *testing.T) {
 	})
 }
 
-type messageCase struct {
-	name     string
-	assert   func(t Testing) bool
-	expected string
-}
-
-type testType string
-
-type selfPointer *selfPointer
-
-type testFuncStruct struct {
-	f func()
-}
-
-type testStruct struct {
-	a int
-	b string
-}
-
-type testQuantity struct {
-	value int
-	unit  string
-}
-
-func (z testQuantity) IsZero() bool {
-	return z.value == 0
-}
-
-type testErr struct{}
-
-func (t testErr) Error() string {
-	return "Custom error"
-}
-
-type testPtrErr struct {
-	msg string
-}
-
-func (t *testPtrErr) Error() string {
-	return t.msg
-}
-
-type testSliceErr []string
-
-func (t testSliceErr) Error() string {
-	return "Slice error"
-}
-
-type logger struct {
-	LastError string
-}
-
-func newLogger() *logger {
-	return &logger{}
-}
-
-func (m *logger) Helper() {
-}
-
-func (m *logger) Errorf(format string, args ...any) {
-	m.LastError = fmt.Sprintf(format, args...)
-}
-
 func testAssert(t *testing.T, condition bool, result bool) {
 	t.Helper()
 
@@ -847,23 +795,6 @@ func testAssert(t *testing.T, condition bool, result bool) {
 	tt = newLogger()
 	if False(tt, condition) != !result {
 		t.Errorf("False(%#v) should return %#v: %s", condition, !result, tt.LastError)
-	}
-}
-
-func testMessages(t *testing.T, cases []messageCase) {
-	t.Helper()
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			tt := newLogger()
-			if c.assert(tt) {
-				t.Errorf("should return false")
-			}
-
-			if !strings.HasPrefix(tt.LastError, c.expected) {
-				t.Errorf("message should start with %q, got %q", c.expected, tt.LastError)
-			}
-		})
 	}
 }
 
@@ -892,6 +823,48 @@ func testEqualDelta[T Numeric](t *testing.T, actual, expected, delta T, result b
 	tt = newLogger()
 	if NotEqualDelta(tt, actual, expected, delta) != !result {
 		t.Errorf("NotEqualDelta(%#v,%#v,%#v) should return %#v: %s", actual, expected, delta, !result, tt.LastError)
+	}
+}
+
+func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
+	t.Helper()
+
+	tt := newLogger()
+	if EqualDelta(tt, actual, expected, delta) {
+		t.Errorf("EqualDelta(%v,%v,%v) should return false", actual, expected, delta)
+	}
+
+	tt = newLogger()
+	if NotEqualDelta(tt, actual, expected, delta) {
+		t.Errorf("NotEqualDelta(%v,%v,%v) should return false", actual, expected, delta)
+	}
+}
+
+func testNil(t *testing.T, actual any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if Nil(tt, actual) != result {
+		t.Errorf("Nil(%#v) should return %#v: %s", actual, result, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotNil(tt, actual) != !result {
+		t.Errorf("NotNil(%#v) should return %#v: %s", actual, !result, tt.LastError)
+	}
+}
+
+func testZero(t *testing.T, actual any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if Zero(tt, actual) != result {
+		t.Errorf("Zero(%#v) should return %#v: %s", actual, result, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotZero(tt, actual) != !result {
+		t.Errorf("NotZero(%#v) should return %#v: %s", actual, !result, tt.LastError)
 	}
 }
 
@@ -969,6 +942,38 @@ func testContains[S Iterable, E Comparable](t *testing.T, actual S, element E, r
 	}
 }
 
+func testContainsInvalid[S Iterable, E Comparable](t *testing.T, actual S, element E) {
+	t.Helper()
+
+	tt := newLogger()
+	if Contains(tt, actual, element) {
+		t.Errorf("Contains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
+	}
+
+	tt = newLogger()
+	if NotContains(tt, actual, element) {
+		t.Errorf("NotContains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
+	}
+}
+
+func testEqualUnordered[S Iterable](t *testing.T, actual, expected S, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if EqualUnordered(tt, actual, expected) != result {
+		t.Errorf("EqualUnordered(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
+func testAffix[S Iterable](t *testing.T, assertion func(Testing, S, S, ...string) bool, name string, actual, affix S, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if assertion(tt, actual, affix) != result {
+		t.Errorf("%s(%#v,%#v) should return %#v: %s", name, actual, affix, result, tt.LastError)
+	}
+}
+
 func testError(t *testing.T, err error, result bool) {
 	t.Helper()
 
@@ -994,6 +999,24 @@ func testErrorIs(t *testing.T, err, target error, result bool) {
 	tt = newLogger()
 	if NotErrorIs(tt, err, target) != !result {
 		t.Errorf("NotErrorIs(%#v,%#v) should return %#v", err, target, !result)
+	}
+}
+
+func testErrorAs(t *testing.T, err error, target any, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if ErrorAs(tt, err, target) != result {
+		t.Errorf("ErrorAs(%#v,%T) should return %#v: %s", err, target, result, tt.LastError)
+	}
+}
+
+func testErrorContains(t *testing.T, err error, substr string, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if ErrorContains(tt, err, substr) != result {
+		t.Errorf("ErrorContains(%#v,%#v) should return %#v: %s", err, substr, result, tt.LastError)
 	}
 }
 
@@ -1023,6 +1046,15 @@ func testEqualJSON(t *testing.T, actual, expected string, result bool) {
 	}
 }
 
+func testJSON(t *testing.T, actual any, expected string, result bool) {
+	t.Helper()
+
+	tt := newLogger()
+	if JSON(tt, actual, expected) != result {
+		t.Errorf("JSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	}
+}
+
 func testPanics(t *testing.T, fn func(), result bool) {
 	t.Helper()
 
@@ -1041,84 +1073,6 @@ func testPanicsWith(t *testing.T, fn func(), expected any, result bool) {
 	}
 }
 
-func testEqualDeltaInvalid[T Numeric](t *testing.T, actual, expected, delta T) {
-	t.Helper()
-
-	tt := newLogger()
-	if EqualDelta(tt, actual, expected, delta) {
-		t.Errorf("EqualDelta(%v,%v,%v) should return false", actual, expected, delta)
-	}
-
-	tt = newLogger()
-	if NotEqualDelta(tt, actual, expected, delta) {
-		t.Errorf("NotEqualDelta(%v,%v,%v) should return false", actual, expected, delta)
-	}
-}
-
-func testNil(t *testing.T, actual any, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if Nil(tt, actual) != result {
-		t.Errorf("Nil(%#v) should return %#v: %s", actual, result, tt.LastError)
-	}
-
-	tt = newLogger()
-	if NotNil(tt, actual) != !result {
-		t.Errorf("NotNil(%#v) should return %#v: %s", actual, !result, tt.LastError)
-	}
-}
-
-func testZero(t *testing.T, actual any, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if Zero(tt, actual) != result {
-		t.Errorf("Zero(%#v) should return %#v: %s", actual, result, tt.LastError)
-	}
-
-	tt = newLogger()
-	if NotZero(tt, actual) != !result {
-		t.Errorf("NotZero(%#v) should return %#v: %s", actual, !result, tt.LastError)
-	}
-}
-
-func testEqualUnordered[S Iterable](t *testing.T, actual, expected S, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if EqualUnordered(tt, actual, expected) != result {
-		t.Errorf("EqualUnordered(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
-	}
-}
-
-func testAffix[S Iterable](t *testing.T, assertion func(Testing, S, S, ...string) bool, name string, actual, affix S, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if assertion(tt, actual, affix) != result {
-		t.Errorf("%s(%#v,%#v) should return %#v: %s", name, actual, affix, result, tt.LastError)
-	}
-}
-
-func testErrorContains(t *testing.T, err error, substr string, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if ErrorContains(tt, err, substr) != result {
-		t.Errorf("ErrorContains(%#v,%#v) should return %#v: %s", err, substr, result, tt.LastError)
-	}
-}
-
-func testErrorAs(t *testing.T, err error, target any, result bool) {
-	t.Helper()
-
-	tt := newLogger()
-	if ErrorAs(tt, err, target) != result {
-		t.Errorf("ErrorAs(%#v,%T) should return %#v: %s", err, target, result, tt.LastError)
-	}
-}
-
 func testNotPanics(t *testing.T, fn func(), result bool) {
 	t.Helper()
 
@@ -1128,31 +1082,45 @@ func testNotPanics(t *testing.T, fn func(), result bool) {
 	}
 }
 
-func testJSON(t *testing.T, actual any, expected string, result bool) {
+func testAllocates(t *testing.T, fn func(), expected int, result bool) {
 	t.Helper()
 
 	tt := newLogger()
-	if JSON(tt, actual, expected) != result {
-		t.Errorf("JSON(%#v,%#v) should return %#v: %s", actual, expected, result, tt.LastError)
+	if Allocates(tt, fn, expected) != result {
+		t.Errorf("Allocates(%d) should return %#v: %s", expected, result, tt.LastError)
 	}
 }
 
-func testContainsInvalid[S Iterable, E Comparable](t *testing.T, actual S, element E) {
+func testMessages(t *testing.T, cases []messageCase) {
 	t.Helper()
 
-	tt := newLogger()
-	if Contains(tt, actual, element) {
-		t.Errorf("Contains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
-	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tt := newLogger()
+			if c.assert(tt) {
+				t.Errorf("should return false")
+			}
 
-	tt = newLogger()
-	if NotContains(tt, actual, element) {
-		t.Errorf("NotContains(%#v,%#v) should return false: %s", actual, element, tt.LastError)
+			if !strings.HasPrefix(tt.LastError, c.expected) {
+				t.Errorf("message should start with %q, got %q", c.expected, tt.LastError)
+			}
+		})
 	}
 }
 
-func ptr(i int) *int {
-	return &i
+type logger struct {
+	LastError string
+}
+
+func (m *logger) Helper() {
+}
+
+func (m *logger) Errorf(format string, args ...any) {
+	m.LastError = fmt.Sprintf(format, args...)
+}
+
+func newLogger() *logger {
+	return &logger{}
 }
 
 func bufferedChan(n int) chan int {
@@ -1163,3 +1131,57 @@ func bufferedChan(n int) chan int {
 
 	return c
 }
+
+func ptr(i int) *int {
+	return &i
+}
+
+type messageCase struct {
+	name     string
+	assert   func(t Testing) bool
+	expected string
+}
+
+type testFuncStruct struct {
+	f func()
+}
+
+type testQuantity struct {
+	value int
+	unit  string
+}
+
+func (z testQuantity) IsZero() bool {
+	return z.value == 0
+}
+
+type testErr struct{}
+
+func (t testErr) Error() string {
+	return "Custom error"
+}
+
+type selfPointer *selfPointer
+
+type testType string
+
+type testStruct struct {
+	a int
+	b string
+}
+
+type testPtrErr struct {
+	msg string
+}
+
+func (t *testPtrErr) Error() string {
+	return t.msg
+}
+
+type testSliceErr []string
+
+func (t testSliceErr) Error() string {
+	return "Slice error"
+}
+
+var sinkInts []int

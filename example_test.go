@@ -12,17 +12,6 @@ import (
 	"github.com/gravitton/assert"
 )
 
-type stdout struct{}
-
-func (stdout) Helper() {
-}
-
-func (stdout) Errorf(format string, args ...any) {
-	fmt.Printf(format+"\n", args...)
-}
-
-var t stdout
-
 func Example_messages() {
 	assert.Equal(t, "Ann", "Bob", "user.Name: ")
 
@@ -554,3 +543,22 @@ func ExampleNotPanics() {
 	//      msg: runtime error: integer divide by zero
 	//    value: "integer divide by zero"
 }
+
+func ExampleAllocates() {
+	assert.Allocates(t, func() {}, 0)
+	assert.Allocates(t, nil, 0)
+
+	// Output:
+	// Should be non-nil function
+}
+
+type stdout struct{}
+
+func (stdout) Helper() {
+}
+
+func (stdout) Errorf(format string, args ...any) {
+	fmt.Printf(format+"\n", args...)
+}
+
+var t stdout

@@ -107,6 +107,12 @@ assert.PanicsWith(t, func() { must(err) }, "permission denied") // the message o
 assert.NotPanics(t, func() { div(1, 1) })
 ```
 
+### Allocations
+
+```go
+assert.Allocates(t, func() { sink = grid.Path(start, goal) }, 1) // passes under the race detector
+```
+
 ### JSON
 
 Compared by structure, so key order and whitespace are ignored. Numbers decode as `float64`, so `1.0` equals `1`.
