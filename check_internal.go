@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"testing"
 )
 
 type validity string
@@ -27,6 +28,7 @@ const (
 	notError         validity = "Should be error"
 	nilFunction      validity = "Should be non-nil function"
 	nilArrayPointer  validity = "Should be non-nil array pointer"
+	parallelTest     validity = "Should not run in parallel test"
 )
 
 func isNil(object any) bool {
@@ -416,4 +418,14 @@ func panicsWith(value, expected any) bool {
 	}
 
 	return reflect.DeepEqual(value, expected)
+}
+
+func isParallel() (parallel bool) {
+	defer func() {
+		parallel = recover() != nil
+	}()
+
+	testing.AllocsPerRun(1, func() {})
+
+	return false
 }

@@ -751,10 +751,21 @@ func TestAllocates(t *testing.T) {
 		sinkInts = make([]int, 8)
 	}
 
-	testAllocates(t, func() {}, 0, true)
-	testAllocates(t, allocate, 1, true)
-	testAllocates(t, allocate, 0, race)
-	testAllocates(t, nil, 0, false)
+	t.Run("passes for the allocations of the function", func(t *testing.T) {
+		testAllocates(t, func() {}, 0, true)
+		testAllocates(t, allocate, 1, true)
+	})
+	t.Run("fails for other allocations, except under the race detector", func(t *testing.T) {
+		testAllocates(t, allocate, 0, race)
+	})
+	t.Run("fails for a nil function", func(t *testing.T) {
+		testAllocates(t, nil, 0, false)
+	})
+	t.Run("fails in a parallel test", func(t *testing.T) {
+		t.Parallel()
+
+		testAllocates(t, func() {}, 0, false)
+	})
 }
 
 func TestMessagesWithAddresses(t *testing.T) {

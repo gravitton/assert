@@ -549,12 +549,16 @@ func NotPanics(t Testing, fn func(), messages ...string) bool {
 
 // Allocates asserts that fn allocates expected times a run, counted by testing.AllocsPerRun over
 // a hundred runs. It passes without running fn under the race detector, whose own allocations
-// would be counted. It fails for a nil fn.
+// would be counted. It fails for a nil fn and in a parallel test, where testing.AllocsPerRun
+// panics, with the race detector or without.
 func Allocates(t Testing, fn func(), expected int, messages ...string) bool {
 	t.Helper()
 
 	if fn == nil {
 		return fail(t, messages, string(nilFunction))
+	}
+	if isParallel() {
+		return fail(t, messages, string(parallelTest))
 	}
 	if allocations, counted := allocationsOf(fn); counted && allocations != expected {
 		return fail(t, messages, "Should allocate", field{"actual", allocations}, field{"expected", expected})
